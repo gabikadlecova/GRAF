@@ -15,6 +15,11 @@ class FeatureCallable:
     def __init__(self, name, kwargs):
         self.name = name
         self.kwargs = kwargs  # not like this tho
+        # TODO maybe add the func, right. it'll be name (via allowed) and callable func
+
+    def __call__(self, net):
+        # do stuff with func
+        pass
 
 # TODO config... allowed either raw or normal. raw is list copy paste, normal does the chain. It should be names.
 # ... names would be converted to ids inside the funcs via op names
