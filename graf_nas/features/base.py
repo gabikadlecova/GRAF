@@ -1,6 +1,18 @@
 import networkx as nx
 
 
+class FeatureCallable:
+    def __init__(self, name, func):
+        self.name = name
+        self.func = func
+
+    def __str__(self):
+        return self.name
+
+    def __call__(self, net, *args, **kwargs):
+        return self.func(net, args, kwargs)
+
+
 def to_graph(edges):
     G = nx.DiGraph()
     for e_from, e_to in edges:
@@ -70,12 +82,12 @@ def get_start_end(ops, start, end):
     return res_start, res_end
 
 
-def min_path_len_opnodes(net, banned, start=0, end=1, max_val=None):
+def min_path_len_opnodes(net, allowed, start=0, end=1, max_val=None):
     _, ops, graph = net
 
     active_edges = []
     for e in graph.edges:
-        if ops[e[0]] in banned or ops[e[1]] in banned:
+        if ops[e[0]] not in allowed or ops[e[1]] not in allowed:
             continue
         active_edges.append(e)
 
@@ -83,9 +95,9 @@ def min_path_len_opnodes(net, banned, start=0, end=1, max_val=None):
     return _min_path(active_edges, start, end, max_val)
 
 
-def min_path_len(net, banned, start=1, end=4, max_val=None):
+def min_path_len(net, allowed, start=1, end=4, max_val=None):
     _, edges = net
-    active_edges = {e for e, v in edges.items() if v not in banned}
+    active_edges = {e for e, v in edges.items() if v in allowed}
 
     return _min_path(active_edges, start, end, max_val)
 

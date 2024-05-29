@@ -1,9 +1,8 @@
 import networkx as nx
 import numpy as np
 
-from zc_combine.features.base import count_ops_opnodes, min_path_len_opnodes, max_num_on_path_opnodes, get_start_end, \
-    get_in_out_edges_opnodes
-from zc_combine.features.conversions import to_graph
+from graf_nas.features.base import count_ops_opnodes, min_path_len_opnodes, max_num_on_path_opnodes, get_start_end, \
+    get_in_out_edges_opnodes, to_graph
 
 
 def node_degree(net, allowed, start=0, end=1):

@@ -1,0 +1,17 @@
+[
+  {
+    "name": "op_count"
+  },
+  {
+    "name": "min_path_len",
+    "allowed": ["maxpool3x3", "conv1x1-bn-relu", "conv3x3-bn-relu"]
+  },
+  {
+    "name": "max_op_on_path",
+    "allowed": ["maxpool3x3", "conv1x1-bn-relu", "conv3x3-bn-relu"]
+  },
+  {
+    "name": "node_degree",
+    "allowed": ["maxpool3x3", "conv1x1-bn-relu", "conv3x3-bn-relu"]
+  }
+]

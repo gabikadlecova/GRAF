@@ -1,0 +1,17 @@
+[
+  {
+    "name": "op_count"
+  },
+  {
+    "name": "min_path_len",
+    "allowed": ["skip_connect", "none", "nor_conv_3x3", "nor_conv_1x1", "avg_pool_3x3"]
+  },
+  {
+    "name": "max_op_on_path",
+    "allowed": ["skip_connect", "none", "nor_conv_3x3", "nor_conv_1x1", "avg_pool_3x3"]
+  },
+  {
+    "name": "node_degree",
+    "allowed": ["skip_connect", "none", "nor_conv_3x3", "nor_conv_1x1", "avg_pool_3x3"]
+  }
+]

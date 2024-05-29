@@ -15,9 +15,9 @@ def get_zcp_predictor(proxy):
     return ZeroCost(proxy)
 
 
-def get_proxy_dataloader(dataset, zc_cfg='../zero_cost/NASLib/naslib/runners/zc/zc_config.yaml',\
+def get_proxy_dataloader(dataset, zc_cfg='../zero_cost/NASLib/naslib/runners/zc/zc_config.yaml',
                          data='../zero_cost/NASLib'):
-    cfg = load_config(zc_cfg) # tak nejak, je to v utils
+    cfg = load_config(zc_cfg)
     cfg.data = "{}/data".format(data)
     cfg.dataset = dataset
     loader, _, _, _ = get_train_val_loaders(cfg, mode='train')

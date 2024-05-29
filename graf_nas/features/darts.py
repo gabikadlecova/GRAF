@@ -1,6 +1,6 @@
 import numpy as np
 
-from zc_combine.features.base import count_ops, get_in_out_edges, max_num_on_path, min_path_len
+from graf_nas.features.base import count_ops, get_in_out_edges, max_num_on_path, min_path_len
 
 
 def _get_for_both_cells(cells, func):
@@ -14,7 +14,7 @@ def _get_for_both_cells(cells, func):
 
 
 def get_op_counts(cells, to_names=False):
-    return _get_for_both_cells(cells, lambda c: count_ops(c, to_names=to_names))
+    return _get_for_both_cells(cells, lambda c: count_ops(c))
 
 
 def get_special_nodes():
@@ -53,7 +53,7 @@ def get_max_path(cells, allowed):
     return _get_for_both_cells(cells, lambda c: _get_both_max_paths(c, allowed))
 
 
-def _get_all_min_paths(net, banned):
+def _get_all_min_paths(net, allowed):
     special_nodes = get_special_nodes()
     all_nodes = set()
     for e in net[1]:
@@ -65,16 +65,16 @@ def _get_all_min_paths(net, banned):
         for node in all_nodes:
             if node in special_nodes:
                 continue
-            res[str((start_node, node))] = min_path_len(net, banned, start=start_node, end=node, max_val=len(all_nodes))
+            res[str((start_node, node))] = min_path_len(net, allowed, start=start_node, end=node, max_val=len(all_nodes))
         return res
 
     return {**get_lengths(special_nodes[0]), **get_lengths(special_nodes[1])}
 
 
-def get_min_node_path(cells, banned):
+def get_min_node_path(cells, allowed):
     """Compared to min path len in nb201, every node is connected to the output and so we look at intermediate nodes
        to assess depth."""
-    return _get_for_both_cells(cells, lambda c: _get_all_min_paths(c, banned))
+    return _get_for_both_cells(cells, lambda c: _get_all_min_paths(c, allowed))
 
 
 feature_func_dict = {
