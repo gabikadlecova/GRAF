@@ -21,7 +21,7 @@ def _nb201_like_to_graph(net, ops, edge_map):
 
 def parse_ops_nb201(net):
     ops = net.strip('()').split(', ') if isinstance(net, str) else net
-    return [[int(i) for i in op] for op in ops]
+    return [int(op) for op in ops]
 
 
 def nb201_to_graph(net):

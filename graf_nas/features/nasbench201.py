@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 
-from zc_combine.features.base import count_ops, min_path_len, max_num_on_path, get_in_out_edges
+from graf_nas.features.base import count_ops, min_path_len, max_num_on_path, get_in_out_edges
 
 
 def op_on_pos(net):

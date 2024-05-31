@@ -10,6 +10,11 @@ def get_ops_nb101():
     return ['input', 'output', 'maxpool3x3', 'conv1x1-bn-relu', 'conv3x3-bn-relu']
 
 
+def get_op_map_nb101():
+    op_map = [*get_ops_nb101()]
+    return {o: i for i, o in enumerate(op_map)}
+
+
 def parse_ops_nb101(net, return_edges=True):
     ops = net
     if isinstance(ops, str):
@@ -33,8 +38,7 @@ def parse_ops_nb101(net, return_edges=True):
 
 
 def nb101_to_graph(net):
-    op_map = [*get_ops_nb101()]
-    op_map = {o: i for i, o in enumerate(op_map)}
+    op_map = get_op_map_nb101()
     op_map = {i: o for o, i in op_map.items()}
 
     ops, edges = parse_ops_nb101(net)

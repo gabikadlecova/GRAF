@@ -1,6 +1,6 @@
-from graf_nas.search_space.darts import darts_to_graph
-from graf_nas.search_space.nasbench101 import nb101_to_graph, nb101_to_onehot
-from graf_nas.search_space.nasbench201 import nb201_to_graph, tnb101_to_graph
+from graf_nas.search_space.darts import darts_to_graph, get_op_map_darts
+from graf_nas.search_space.nasbench101 import nb101_to_graph, nb101_to_onehot, get_op_map_nb101
+from graf_nas.search_space.nasbench201 import nb201_to_graph, tnb101_to_graph, get_ops_edges_nb201, get_ops_edges_tnb101
 from graf_nas.search_space.tnb101_macro import tnb101_macro_encode
 
 from naslib.search_spaces.nasbench201.encodings import encode_adjacency_one_hot_op_indices
@@ -29,6 +29,14 @@ def convert_to_naslib(net, benchmark, **kwargs):
     naslib_obj = naslib_objects[benchmark](**kwargs)
     naslib_obj.set_spec(net)
     return naslib_obj
+
+
+op_maps = {
+    'nb101': get_op_map_nb101,
+    'nb201': lambda: {o: i for i, o in enumerate(get_ops_edges_nb201()[0])},
+    'darts': get_op_map_darts,
+    'tnb101_micro': lambda: {o: i for i, o in enumerate(get_ops_edges_tnb101()[0])}
+}
 
 
 bench_conversions = {

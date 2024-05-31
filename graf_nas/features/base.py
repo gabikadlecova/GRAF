@@ -1,7 +1,7 @@
 import networkx as nx
 
 
-class FeatureCallable:
+class Feature:
     def __init__(self, name, func):
         self.name = name
         self.func = func
@@ -9,8 +9,21 @@ class FeatureCallable:
     def __str__(self):
         return self.name
 
-    def __call__(self, net, *args, **kwargs):
-        return self.func(net, args, kwargs)
+    def __call__(self, net):
+        return self.func(net)
+
+
+class ConstrainedFeature:
+    def __init__(self, name, func, allowed):
+        self.name = name
+        self.func = func
+        self.allowed = allowed
+
+    def __str__(self):
+        return self.name
+
+    def __call__(self, net):
+        return self.func(net, self.allowed)
 
 
 def to_graph(edges):

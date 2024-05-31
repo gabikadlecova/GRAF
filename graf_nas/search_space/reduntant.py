@@ -1,6 +1,6 @@
 import networkx as nx
 
-from zc_combine.features.conversions import to_graph
+from graf_nas.features.base import to_graph
 
 
 def remove_zero_branches(edges, zero_op=1, source=1, target=4):
