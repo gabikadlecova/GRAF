@@ -3,7 +3,38 @@ import math
 import naslib
 import networkx as nx
 import numpy as np
+
+from graf_nas.search_space.conversions import convert_to_naslib, NetBase
 from naslib.search_spaces.nasbench101.conversions import convert_tuple_to_spec
+from naslib.search_spaces.nasbench101.graph import NasBench101SearchSpace
+
+
+class NB101(NetBase):
+    naslib_object = None
+    random_iterator = False
+
+    def __init__(self, net):
+        super().__init__(net)
+
+    def to_graph(self):
+        return nb101_to_graph(self.net)
+
+    def to_onehot(self):
+        return nb101_to_onehot(self.net)
+
+    def to_naslib(self):
+        return convert_to_naslib(self.net, NasBench101SearchSpace)
+
+    @staticmethod
+    def get_op_map():
+        return get_op_map_nb101()
+
+    @staticmethod
+    def get_arch_iterator(dataset_api):
+        if NB101.naslib_object is None:
+            NB101.naslib_object = NasBench101SearchSpace()
+
+        return NB101.naslib_object.get_arch_iterator(dataset_api)
 
 
 def get_ops_nb101():
@@ -28,13 +59,7 @@ def parse_ops_nb101(net, return_edges=True):
         op = [int(o) for o in op]
         return (op, [int(e) for e in edges]) if return_edges else op
 
-    vals = [parse_cell(op) for op in ops]
-    if len(vals) == 1:
-        return vals[0]
-
-    if not return_edges:
-        return vals
-    return [o[0] for o in vals], [o[1] for o in vals]
+    return parse_cell(ops)
 
 
 def nb101_to_graph(net):

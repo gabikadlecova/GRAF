@@ -95,12 +95,18 @@ def get_start_end(ops, start, end):
     return res_start, res_end
 
 
+def is_valid_opnodes(op, allowed, start=0, end=1):
+    if op == start or op == end or op in allowed:
+        return True
+    return False
+
+
 def min_path_len_opnodes(net, allowed, start=0, end=1, max_val=None):
     _, ops, graph = net
 
     active_edges = []
     for e in graph.edges:
-        if ops[e[0]] not in allowed or ops[e[1]] not in allowed:
+        if not is_valid_opnodes(ops[e[0]], allowed) or not is_valid_opnodes(ops[e[1]], allowed):
             continue
         active_edges.append(e)
 

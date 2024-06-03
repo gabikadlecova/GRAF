@@ -1,10 +1,9 @@
 import json
-from functools import partial
 from itertools import chain, combinations
 
 from graf_nas.features import feature_dicts
 from graf_nas.features.base import Feature, ConstrainedFeature
-from graf_nas.search_space.conversions import op_maps
+from graf_nas.search_space import searchspace_classes
 
 
 def load_from_config(func_cfg, func_dict):
@@ -24,9 +23,16 @@ def load_function_group(func_entry, benchmark):
     name = func_entry['name']
     func_key_dict = feature_dicts[benchmark]
     func = func_key_dict[name]
-    bench_op_map = op_maps[benchmark]()
+    bench_op_map = None
 
     if 'allowed' in func_entry:
+        if bench_op_map is None:
+            searchspace_cls = searchspace_classes[benchmark]
+            if not hasattr(searchspace_cls, 'get_op_map'):
+                raise ValueError(f"Searchspace {benchmark} has no method for op map "
+                                 f"(needed when 'allowed' is in the config file).")
+            bench_op_map = searchspace_cls.get_op_map()
+
         is_raw = False
         if 'allowed_mode' in func_entry:
             allowed_mode = func_entry['allowed_mode']
