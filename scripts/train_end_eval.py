@@ -11,16 +11,18 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 from graf_nas.features.config import load_from_config
 from graf_nas.graf import create_dataset, GRAF
-from graf_nas.search_space import searchspace_classes
+from graf_nas.sample import sampling_strategies
+from graf_nas.search_space import searchspace_classes, dataset_api_maps
 from naslib.utils import get_dataset_api
 
 
 zcps = ['epe_nas', 'fisher', 'flops', 'grad_norm', 'grasp', 'jacov', 'l2_norm', 'nwot', 'params', 'plain', 'snip', 'synflow', 'zen']
 
 
-def get_train_test_splits(feature_dataset, y, train_size, test_size, seed):
-    # TODO sampling strategies here
-    raise NotImplementedError()
+def get_train_test_splits(feature_dataset, y, train_size, test_size, seed, strategy):
+    train_X, train_y = sampling_strategies[strategy](feature_dataset, y, train_size, seed)
+    test_X, test_y = sampling_strategies['random'](feature_dataset, y, test_size, seed + 1)
+    return {'train_X': train_X, 'train_y': train_y, 'test_X': test_X, 'test_y': test_y}
 
 
 def eval_model(model, data_splits):
@@ -50,24 +52,33 @@ def train_end_evaluate(args):
     benchmark, dataset = args['benchmark'], args['dataset']
 
     # initialize wandb
-    wandb.login(key=args['wandb_key_'])
-    wandb.init(project=args['wandb_project_'], config=args, name=f"{benchmark}_{dataset}_{get_timestamp()}")
+    if not args['debug_']:
+        wandb.login(key=args['wandb_key_'])
+        wandb.init(project=args['wandb_project_'], config=args, name=f"{benchmark}_{dataset}_{get_timestamp()}")
 
     # get iterator of all available networks
     net_cls = searchspace_classes[benchmark]
-    dataset_api = get_dataset_api(search_space=benchmark, dataset=dataset)
+    dataset_api = get_dataset_api(search_space=dataset_api_maps[benchmark], dataset=dataset)
     net_iterator = net_cls.get_arch_iterator(dataset_api)
 
     if net_cls.random_iterator:
         raise ValueError("Not implemented for DARTS.")
 
+    # load feature funcs and precomputed data
     feature_funcs = load_from_config(args['config'], benchmark)
-    cached_zcp = pd.read_csv(args['cached_zcp_path_'], index_col=0)
+
+    cached_data = None
+    cached_zcp = [pd.read_csv(args['cached_zcp_path_'], index_col=0)] if args['cached_zcp_path_'] is not None else []
+    cached_features = [pd.read_csv(args['cached_features_path_'], index_col=0)] if args['cached_features_path_'] is not None else []
+    if len(cached_zcp) > 0 or len(cached_features) > 0:
+        cached_data = pd.concat([*cached_zcp, *cached_features], axis=1)
 
     # load target data, compute features
     y = pd.read_csv(args['target_path_'], index_col=0)
-    graf_model = GRAF(feature_funcs, benchmark, cached_data=cached_zcp, cache_features=False)
-    feature_dataset = create_dataset(graf_model, net_iterator, zcps)
+    graf_model = GRAF(feature_funcs, benchmark, cached_data=cached_data, cache_features=False, no_zcp_raise=True)
+    feature_dataset, y = create_dataset(graf_model, net_iterator, y, zcps, target_name=args['target_name'],
+                                        use_features=args['use_features'], use_zcp=args['use_zcp'],
+                                        use_onehot=args['use_onehot'])
 
     # get regressor
     model = RandomForestRegressor()
@@ -76,10 +87,11 @@ def train_end_evaluate(args):
     for i in range(args['n_train_evals']):
         data_seed = args['seed'] + i
         data_splits = get_train_test_splits(feature_dataset, y, args['train_size'], args['test_size'],
-                                            data_seed)
+                                            data_seed, args['sample_strategy'])
 
         res = eval_model(model, data_splits)
-        wandb.log(res, step=data_seed)
+        if not args['debug_']:
+            wandb.log(res, step=data_seed)
 
 
 if __name__ == "__main__":
@@ -88,13 +100,28 @@ if __name__ == "__main__":
     )
     parser.add_argument('--benchmark', default='nb201', help="Which NAS benchmark to use (e.g. nb201).")
     parser.add_argument('--dataset', default='cifar10', help="Which dataset from the benchmark to use (e.g. cifar10).")
-    parser.add_argument('--config')
-    parser.add_argument('--cached_zcp_path_')
-    parser.add_argument('--target_path_')
-    parser.add_argument('--seed')
-    parser.add_argument('--n_train_evals')
-    parser.add_argument('--wandb_key_')
-    parser.add_argument('--wandb_project_', default='graf_sampling')
+    parser.add_argument('--config', required=True, help="Path to the feature configuration file.")
+    parser.add_argument('--cached_features_path_', default=None, help="Path to the cached features file.")
+    parser.add_argument('--cached_zcp_path_', default=None, help="Path to the cached zcp score file.")
+    parser.add_argument('--target_path_', required=True,
+                        help="Path to network targets (e.g. accuracy). It should be a .csv file with net hashes as "
+                             "index and `target_name` among the columns.")
+    parser.add_argument('--target_name', default='val_accs', help="Name of the target column.")
+    parser.add_argument('--seed', default=42,
+                        help="Random seed for sampling the training data. For test data, `seed + 1` is used instead.")
+    parser.add_argument('--n_train_evals', default=50,
+                        help="Number of training samples on which the model is trained and evaluated.")
+    parser.add_argument('--train_size', default=100,
+                        help="Number of architectures to sample for the training set.")
+    parser.add_argument('--test_size', default=1000,
+                        help="Number of architectures to sample for the test set.")
+    parser.add_argument('--sample_strategy', default="random", help="Strategy for sampling train networks.")
+    parser.add_argument('--wandb_key_', required=True, help='Login key to wandb.')
+    parser.add_argument('--wandb_project_', default='graf_sampling', help="Wandb project name.")
+    parser.add_argument('--debug_', action='store_true', help="If True, do not sync to wandb.")
+    parser.add_argument('--use_features', action='store_true', help="If True, use features from GRAF.")
+    parser.add_argument('--use_zcp', action='store_true', help="If True, use zero-cost proxies.")
+    parser.add_argument('--use_onehot', action='store_true', help="If True, use the onehot encoding.")
 
     args = parser.parse_args()
     args = vars(args)

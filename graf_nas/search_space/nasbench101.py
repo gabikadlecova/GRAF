@@ -20,7 +20,7 @@ class NB101(NetBase):
         return nb101_to_graph(self.net)
 
     def to_onehot(self):
-        return nb101_to_onehot(self.net)
+        return nb101_to_onehot(eval(self.net))
 
     def to_naslib(self):
         return convert_to_naslib(self.net, NasBench101SearchSpace)
@@ -34,7 +34,8 @@ class NB101(NetBase):
         if NB101.naslib_object is None:
             NB101.naslib_object = NasBench101SearchSpace()
 
-        return NB101.naslib_object.get_arch_iterator(dataset_api)
+        for n in NB101.naslib_object.get_arch_iterator(dataset_api):
+            yield NB101(str(n))
 
 
 def get_ops_nb101():

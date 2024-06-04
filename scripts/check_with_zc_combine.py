@@ -6,6 +6,7 @@ from tqdm import tqdm
 from graf_nas import GRAF
 from graf_nas.features.config import load_from_config
 from graf_nas.features.zero_cost import get_zcp_dataloader
+from graf_nas.search_space import NB201, searchspace_classes
 
 
 @click.command()
@@ -30,16 +31,9 @@ def main(benchmark, dataset, config, cached_data, naslib_root, zcp_cfg_path):
     graf_model = GRAF(feature_funcs, benchmark, dataloader=dataloader, cached_data=None, compute_new_zcps=True,
                       cache_features=False)
 
-    if benchmark == 'nb201':
-        net = '(2, 3, 2, 3, 2, 3)'
-
-        zcps = graf_model.compute_zcp_scores(net, ['synflow', 'nwot', 'l2_norm'])
-        features = graf_model.compute_features(net)
-    else:
-        print('skipo')
-
+    net_cls = searchspace_classes[benchmark]
     if 'macro' not in benchmark:
-        ops = list(op_maps[benchmark]().keys())
+        ops = list(net_cls.get_op_map().keys())
 
     def rename_banned(c):
         if 'banned' in c:
@@ -69,13 +63,13 @@ def main(benchmark, dataset, config, cached_data, naslib_root, zcp_cfg_path):
 
     for i in tqdm(cached_data.index):
         row = cached_data.loc[i]
-        feats = graf_model.compute_features(row['net'])
+        feats = graf_model.compute_features(net_cls(row['net']))
         for f, val in feats.items():
             if f not in cached_data.columns:
                 print(f"{f} not in cols!")
 
             if val != row[f]:
-                graf_model.compute_features(row['net'])
+                graf_model.compute_features(net_cls(row['net']))
 
             assert np.abs(val - row[f]) < np.finfo(float).eps, f"new: {val}, old: {row[f]}"
 

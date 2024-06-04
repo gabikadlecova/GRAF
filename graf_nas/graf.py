@@ -7,11 +7,12 @@ from graf_nas.features import feature_dicts
 from graf_nas.features.config import load_from_config
 from graf_nas.features.zero_cost import get_zcp_predictor
 from graf_nas.search_space.conversions import NetBase
+from graf_nas.search_space.reduntant import remove_zero_branches
 
 
 class GRAF:
     def __init__(self, features, benchmark, dataloader=None, cached_data=None, cache_zcp_scores=True,
-                 cache_features=True, compute_new_zcps=False):
+                 cache_features=True, compute_new_zcps=False, no_zcp_raise=False, no_feature_raise=False):
 
         self.benchmark = benchmark
         self.features = features
@@ -27,6 +28,9 @@ class GRAF:
         self.zcp_predictors = {}
         self.dataloader = dataloader
         self.compute_new_zcps = compute_new_zcps
+
+        self.no_zcp_raise = no_zcp_raise
+        self.no_feature_raise = no_feature_raise
 
     def compute_features(self, net: NetBase):
         net_graf = None
@@ -45,6 +49,10 @@ class GRAF:
                 for k, v in cached_feats.items():
                     res[k] = v
                 continue
+
+            # optionally raise if not available
+            if self.no_feature_raise:
+                raise FeatureNotFoundException(f"Feature {feat.name} not found in precomputed data.")
 
             # otherwise compute and optionally cache
             net_graf = net_graf if net_graf is not None else net.to_graph()
@@ -111,6 +119,10 @@ class GRAF:
 
             # compute score if not available or invalid; optionally cache it
             if self.compute_new_zcps and (result is None or pd.isnull(result)):
+                # optionally raise if not available
+                if self.no_zcp_raise:
+                    raise FeatureNotFoundException(f"Zero-cost proxy {zcp_key} not found in precomputed data.")
+
                 if naslib_net is None:
                     naslib_net = net.to_naslib()
                     naslib_net.parse()
@@ -124,16 +136,35 @@ class GRAF:
         return res
 
 
-def create_dataset(graf, nets: Iterable[NetBase], zcp_names: list[str] | None):
+class FeatureNotFoundException(Exception):
+    pass
+
+
+def create_dataset(graf, nets: Iterable[NetBase], target_df, zcp_names: list[str] | None, drop_unreachables=True,
+                   zero_op=1, target_name='val_accs', use_zcp=False, use_features=True, use_onehot=False):
     dataset = []
+    y = []
     index = []
     for net in nets:
+        if drop_unreachables:
+            _, edges = net.to_graph()
+            new_edges = remove_zero_branches(edges, zero_op=zero_op)
+            if new_edges != edges:
+                continue
+
+        target = target_df.loc[net.get_hash()][target_name]
         features = graf.compute_features(net)
-        if zcp_names is not None:
+        if use_zcp:
+            assert zcp_names is not None
             zcps = graf.compute_zcp_scores(net, zcp_names)
             features = {**features, **zcps}
 
-        index.append(net)
-        dataset.append(features)
+        if use_onehot:
+            onehot = net.to_onehot()
+            features = {**features, **{f"onehot_{i}": o for i, o in enumerate(onehot)}}
 
-    return pd.DataFrame(dataset, index=index)
+        index.append(net.get_hash())
+        dataset.append(features)
+        y.append(target)
+
+    return pd.DataFrame(dataset, index=index), pd.Series(y, index=index)

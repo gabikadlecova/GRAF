@@ -16,7 +16,7 @@ class TNB101_micro(NetBase):
         return tnb101_to_graph(self.net)
 
     def to_onehot(self):
-        return encode_adjacency_one_hot_transbench_micro_op_indices(self.net)
+        return encode_adjacency_one_hot_transbench_micro_op_indices(eval(self.net))
 
     def to_naslib(self):
         return convert_to_naslib(self.net, TransBench101SearchSpaceMicro)
@@ -30,7 +30,8 @@ class TNB101_micro(NetBase):
         if TNB101_micro.naslib_object is None:
             TNB101_micro.naslib_object = TransBench101SearchSpaceMicro()
 
-        return TNB101_micro.naslib_object.get_arch_iterator(dataset_api)
+        for n in TNB101_micro.naslib_object.get_arch_iterator(dataset_api):
+            yield TNB101_micro(str(n))
 
 
 def get_ops_edges_tnb101():

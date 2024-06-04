@@ -11,3 +11,11 @@ searchspace_classes = {
     'tnb101_micro': TNB101_micro,
     'tnb101_macro': TNB101_macro
 }
+
+dataset_api_maps = {
+    'nb101': 'nasbench101',
+    'nb201': 'nasbench201',
+    'darts': 'nasbench301',
+    'tnb101_macro': 'transbench101_macro',
+    'tnb101_micro': 'transbench101_micro',
+}

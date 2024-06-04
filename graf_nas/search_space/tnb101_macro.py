@@ -15,7 +15,7 @@ class TNB101_macro(NetBase):
         return tnb101_macro_encode(self.net)
 
     def to_onehot(self):
-        return encode_adjacency_one_hot_transbench_macro_op_indices(self.net)
+        return encode_adjacency_one_hot_transbench_macro_op_indices(eval(self.net))
 
     def to_naslib(self):
         return convert_to_naslib(self.net, TransBench101SearchSpaceMacro)
@@ -25,7 +25,8 @@ class TNB101_macro(NetBase):
         if TNB101_macro.naslib_object is None:
             TNB101_macro.naslib_object = TransBench101SearchSpaceMacro()
 
-        return TNB101_macro.naslib_object.get_arch_iterator(dataset_api)
+        for n in TNB101_macro.naslib_object.get_arch_iterator(dataset_api):
+            yield TNB101_macro(str(n))
 
 
 def tnb101_macro_encode(net):

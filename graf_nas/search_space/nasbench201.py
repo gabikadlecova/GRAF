@@ -15,7 +15,7 @@ class NB201(NetBase):
         return nb201_to_graph(self.net)
 
     def to_onehot(self):
-        return encode_adjacency_one_hot_op_indices(self.net)
+        return encode_adjacency_one_hot_op_indices(eval(self.net))
 
     def to_naslib(self):
         return convert_to_naslib(self.net, NasBench201SearchSpace)
@@ -29,7 +29,8 @@ class NB201(NetBase):
         if NB201.naslib_object is None:
             NB201.naslib_object = NasBench201SearchSpace()
 
-        return NB201.naslib_object.get_arch_iterator(dataset_api)
+        for n in NB201.naslib_object.get_arch_iterator(dataset_api):
+            yield NB201(str(n))
 
 
 def get_ops_edges_nb201():

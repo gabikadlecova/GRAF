@@ -49,7 +49,7 @@ class DARTS(NetBase):
             compact[1] = tuple(compact[1])
             compact = tuple(compact)
 
-            yield compact
+            yield DARTS(str(compact))
 
 
 def get_op_map_darts():
