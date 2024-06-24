@@ -131,26 +131,32 @@ def _max_num_path(G, start, end, compute_weight):
     for i, val in enumerate(path):
         if i == len(path) - 1:
             break
-        n_on_path += (1 - compute_weight(val, path[i + 1], None)) // 2
+
+        if compute_weight(val, path[i + 1], None) > 0:
+            n_on_path = 0
+            break
+
+        n_on_path += 1
+        #n_on_path += (1 - compute_weight(val, path[i + 1], None)) // 2
 
     return n_on_path
 
 
-def max_num_on_path_opnodes(net, allowed, start=0, end=1):
+def max_num_on_path_opnodes(net, allowed, start=0, end=1, max_len=10):
     _, ops, graph = net
 
     def compute_weight(start, end, _):
-        return -1 if ops[end] in allowed else 1
+        return -1 if ops[end] in allowed else max_len
 
     start, end = get_start_end(ops, start, end)
 
     return _max_num_path(graph, start, end, compute_weight)
 
 
-def max_num_on_path(net, allowed, start=1, end=4):
+def max_num_on_path(net, allowed, start=1, end=4, max_len=10):
     _, edges = net
 
     def compute_weight(start, end, _):
-        return -1 if edges[(start, end)] in allowed else 1
+        return -1 if edges[(start, end)] in allowed else max_len
 
     return _max_num_path(to_graph(edges.keys()), start, end, compute_weight)

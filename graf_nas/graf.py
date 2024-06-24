@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import Union
 
 import pandas as pd
+from tqdm import tqdm
 
 from graf_nas.features import feature_dicts
 from graf_nas.features.config import load_from_config
@@ -140,20 +141,26 @@ class FeatureNotFoundException(Exception):
     pass
 
 
-def create_dataset(graf, nets: Iterable[NetBase], target_df, zcp_names: list[str] | None, drop_unreachables=True,
-                   zero_op=1, target_name='val_accs', use_zcp=False, use_features=True, use_onehot=False):
+def create_dataset(graf, nets: Iterable[NetBase], target_df=None, zcp_names: list[str] | None = None, drop_unreachables=True,
+                   zero_op=1, target_name='val_accs', use_zcp=False, use_features=True, use_onehot=False, verbose=True):
     dataset = []
     y = []
     index = []
-    for net in nets:
+    for net in tqdm(nets, disable=not verbose):
         if drop_unreachables:
             _, edges = net.to_graph()
             new_edges = remove_zero_branches(edges, zero_op=zero_op)
             if new_edges != edges:
                 continue
 
-        target = target_df.loc[net.get_hash()][target_name]
-        features = graf.compute_features(net)
+        if target_df is not None:
+            target = target_df.loc[net.get_hash()][target_name]
+            y.append(target)
+
+        features = {}
+        if use_features:
+            features = graf.compute_features(net)
+
         if use_zcp:
             assert zcp_names is not None
             zcps = graf.compute_zcp_scores(net, zcp_names)
@@ -165,6 +172,9 @@ def create_dataset(graf, nets: Iterable[NetBase], target_df, zcp_names: list[str
 
         index.append(net.get_hash())
         dataset.append(features)
-        y.append(target)
 
-    return pd.DataFrame(dataset, index=index), pd.Series(y, index=index)
+    dataset = pd.DataFrame(dataset, index=index)
+    if not len(y):
+        return dataset
+
+    return dataset, pd.Series(y, index=index)
