@@ -13,8 +13,8 @@ def _get_for_both_cells(cells, func):
     return {'normal': normal, 'reduce': reduce}
 
 
-def get_op_counts(cells, to_names=False):
-    return _get_for_both_cells(cells, lambda c: count_ops(c))
+def get_op_counts(cells):
+    return _get_for_both_cells(cells, count_ops)
 
 
 def get_special_nodes():
@@ -24,7 +24,7 @@ def get_special_nodes():
 def _get_cell_degrees(net, allowed):
     get_avg = lambda x: np.mean([len(v) for v in x.values()])
 
-    input1, input2, output = get_special_nodes()
+    input1, input2, _ = get_special_nodes()
 
     in_edges, out_edges = get_in_out_edges(net[1], allowed)
     return {f'{input1}_degree': len(in_edges[input1]), f'{input2}_degree': len(in_edges[input2]),
@@ -46,7 +46,12 @@ def _get_both_max_paths(net, allowed):
 
     res1 = max_num_on_path(net, allowed, start=input1, end=output)
     res2 = max_num_on_path(net, allowed, start=input2, end=output)
-    return {f"{input1}": res1, f"{input2}": res2}
+        
+    # if a path is found, omit connection from the last node to the output
+    def adjust_by_one(r):
+        return r - 1 if len(r) > 0 else 0
+
+    return {f"{input1}": adjust_by_one(res1), f"{input2}": adjust_by_one(res2)}
 
 
 def get_max_path(cells, allowed):

@@ -33,10 +33,6 @@ def to_graph(edges):
     return G
 
 
-def _to_names(op_dict, ops):
-    return {ops[o]: v for o, v in op_dict.items()}
-
-
 def count_ops_opnodes(net):
     op_names, ops, _ = net
     op_counts = {i: 0 for i, _ in enumerate(op_names)}
@@ -127,36 +123,36 @@ def _max_num_path(G, start, end, compute_weight):
     except (nx.NodeNotFound, nx.NetworkXNoPath):
         return 0
 
-    n_on_path = 0
-    for i, val in enumerate(path):
-        if i == len(path) - 1:
-            break
-
-        if compute_weight(val, path[i + 1], None) > 0:
-            n_on_path = 0
-            break
-
-        n_on_path += 1
-        #n_on_path += (1 - compute_weight(val, path[i + 1], None)) // 2
-
+    n_on_path = len(path)
     return n_on_path
 
 
-def max_num_on_path_opnodes(net, allowed, start=0, end=1, max_len=10):
+def max_num_on_path_opnodes(net, allowed, start=0, end=1):
     _, ops, graph = net
 
+    def is_allowed(node):
+        node = ops[node]
+        return node in allowed or node == start or node == end
+
+    G_allowed = to_graph([edge for edge in graph.edges() if is_allowed(edge[0]) and is_allowed(edge[1])])
+
     def compute_weight(start, end, _):
-        return -1 if ops[end] in allowed else max_len
+        return -1
 
     start, end = get_start_end(ops, start, end)
+    path_len = _max_num_path(G_allowed, start, end, compute_weight) - 2
 
-    return _max_num_path(graph, start, end, compute_weight)
+    # number of nodes except input and output
+    return path_len - 2
 
 
-def max_num_on_path(net, allowed, start=1, end=4, max_len=10):
+def max_num_on_path(net, allowed, start=1, end=4):
     _, edges = net
-
+    
     def compute_weight(start, end, _):
-        return -1 if edges[(start, end)] in allowed else max_len
+        return -1
 
-    return _max_num_path(to_graph(edges.keys()), start, end, compute_weight)
+    path_len = _max_num_path(to_graph([k for k in edges.keys() if edges[k] in allowed]), start, end, compute_weight)
+
+    # adjust by 1 -> edge count
+    return path_len - 1

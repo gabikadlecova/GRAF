@@ -6,14 +6,16 @@ from graf_nas.features.base import Feature, ConstrainedFeature
 from graf_nas.search_space import searchspace_classes
 
 
-def load_from_config(func_cfg, func_dict):
+def load_from_config(func_cfg, func_dict, config_loader_func=None):
+    config_loader_func = config_loader_func if config_loader_func is not None else load_function_group
+
     if isinstance(func_cfg, str):
         with open(func_cfg, 'r') as f:
             func_cfg = json.load(f)
 
     features = []
     for func_entry in func_cfg:
-        func_list = load_function_group(func_entry, func_dict)
+        func_list = config_loader_func(func_entry, func_dict)
         features.extend(func_list)
 
     return features
