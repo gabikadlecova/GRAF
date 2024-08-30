@@ -92,7 +92,7 @@ def train_end_evaluate(args):
             feature_dataset, y = cd['dataset'], cd['y']
     else:
         y = pd.read_csv(args['target_path_'], index_col=0)
-        graf_model = GRAF(feature_funcs, benchmark, cached_data=cached_data, cache_features=False, no_zcp_raise=True)
+        graf_model = GRAF(feature_funcs, benchmark, cached_data=cached_data, cache_features=True, no_zcp_raise=True)
         feature_dataset, y = create_dataset(graf_model, net_iterator, target_df=y, zcp_names=zcps,
                                             target_name=args['target_name'], use_features=args['use_features'],
                                             use_zcp=args['use_zcp'], use_onehot=args['use_onehot'],

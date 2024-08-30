@@ -34,7 +34,7 @@ class GRAF:
         self.no_feature_raise = no_feature_raise
 
     def compute_features(self, net: NetBase):
-        net_graf = None
+        net_graph = None
         res = {}
         for feat in self.features:
             def feats_not_none(f):
@@ -56,8 +56,8 @@ class GRAF:
                 raise FeatureNotFoundException(f"Feature {feat.name} not found in precomputed data.")
 
             # otherwise compute and optionally cache
-            net_graf = net_graf if net_graf is not None else net.to_graph()
-            f_res = feat(net_graf)
+            net_graph = net_graph if net_graph is not None else net.to_graph()
+            f_res = feat(net_graph)
             f_res = {feat.name: f_res} if not isinstance(f_res, dict) else {f"{feat.name}_{k}": v for k, v in f_res.items()}
             for fk, fv in f_res.items():
                 res[fk] = fv
@@ -74,7 +74,8 @@ class GRAF:
         if not len(colnames):
             return None
 
-        return {k: self.cached_data.loc[net][k] for k in colnames}
+        features = self.cached_data.loc[net, colnames]
+        return features.to_dict()
 
     def get_cached_zcp(self, net: str, zcp_key):
         # no caching or this zcp is not cached
@@ -112,7 +113,7 @@ class GRAF:
         if isinstance(zcp_names, str):
             zcp_names = [zcp_names]
 
-        naslib_net = None
+        model = None
         res = {}
         for zcp_key in zcp_names:
             # try to retrieve cached score
@@ -124,11 +125,11 @@ class GRAF:
                 if self.no_zcp_raise:
                     raise FeatureNotFoundException(f"Zero-cost proxy {zcp_key} not found in precomputed data.")
 
-                if naslib_net is None:
-                    naslib_net = net.to_naslib()
-                    naslib_net.parse()
+                # parse callable model
+                if model is None:
+                    model = net.get_model()
 
-                result = self.compute_zcp(naslib_net, zcp_key)
+                result = self.compute_zcp(model, zcp_key)
                 if self.cache_zcp_scores:
                     self._cache_score(net.get_hash(), zcp_key, result)
 
