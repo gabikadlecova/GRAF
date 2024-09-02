@@ -4,6 +4,7 @@ from graf_nas.features.tnb101_macro import feature_func_dict as tnb101_macro_dic
 from graf_nas.features.darts import feature_func_dict as darts_dict
 
 
+# Maps the benchmark name to available feature functions
 feature_dicts = {
     'nb101': nb101_dict,
     'nb201': nb201_dict,

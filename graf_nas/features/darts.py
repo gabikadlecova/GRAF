@@ -3,7 +3,7 @@ import numpy as np
 from graf_nas.features.base import count_ops, get_in_out_edges, max_num_on_path, min_path_len
 from graf_nas.search_space.base import NetGraph
 from collections.abc import Callable
-from typing import List, Dict, Tuple, Any, Union
+from typing import List, Dict, Tuple, Any
 
 
 def _get_for_both_cells(cells: Tuple[NetGraph, NetGraph], func: Callable[[NetGraph], Any]) -> Dict[str, Any]:
@@ -69,7 +69,7 @@ def _get_all_min_paths(net: NetGraph, allowed: List[int]) -> Dict[str, int]:
         all_nodes.add(e[0])
         all_nodes.add(e[1])
 
-    def get_lengths(start_node: Union[str, int]) -> Dict[str, int]:
+    def get_lengths(start_node: str | int) -> Dict[str, int]:
         res = {}
         for node in all_nodes:
             if node in special_nodes:

@@ -1,52 +1,77 @@
+import torch
 from collections.abc import Iterable
-from typing import Union
+from typing import Optional, Dict, Any, Hashable, List, Tuple
 
 import pandas as pd
+import torch.utils
+import torch.utils.data
 from tqdm import tqdm
 
 from graf_nas.features import feature_dicts
 from graf_nas.features.config import load_from_config
-from graf_nas.features.zero_cost import get_zcp_predictor
+from graf_nas.features.zero_cost import get_zcp_predictor, ZeroCostBase
 from graf_nas.search_space.base import NetBase
 from graf_nas.search_space.reduntant import remove_zero_branches
 
 
 class GRAF:
-    def __init__(self, features, benchmark, dataloader=None, cached_data=None, cache_zcp_scores=True,
-                 cache_features=True, compute_new_zcps=False, no_zcp_raise=False, no_feature_raise=False):
+    def __init__(self, benchmark: str, features=None, zcp_predictors: List[str | ZeroCostBase] | None = None,
+                 dataloader: Optional[torch.utils.data.DataLoader] = None,
+                 cached_data: Optional[pd.DataFrame] = None, cache_zcp_scores: bool = True, cache_features: bool = True,
+                 compute_new_zcps: bool = False, no_zcp_raise: bool = False, no_feature_raise: bool = False):
 
+        # network benchmark (search space)
         self.benchmark = benchmark
-        self.features = features
+
+        # features to compute - either as objects, dict config, or path to a config file
+        self.features = features if features is not None else []
         if isinstance(features, str) or isinstance(features, dict):
             self.features = load_from_config(features, feature_dicts[benchmark])  # load features from cfg file
 
+        # zero-cost proxy predictors to use - either as objects or names
+        self.zcp_predictors: Dict[str, ZeroCostBase | None] = {}
+        zcp_predictors = zcp_predictors if zcp_predictors is not None else []
+        zcp_predictors = [zcp_predictors] if isinstance(zcp_predictors, str) else zcp_predictors
+        for zcp in zcp_predictors:
+            if isinstance(zcp, str):
+                self.zcp_predictors[zcp] = None
+            else:
+                self.zcp_predictors[zcp.name] = zcp
+
+        # for computing zero-cost proxies
+        self.dataloader = dataloader
+        self.compute_new_zcps = compute_new_zcps  # if False, return None if zcp is not found in cached data
+
+        # cached data with precomputed features and/or zero-cost proxies
         self.cached_data = cached_data
-        self.cache_zcp_scores = cache_zcp_scores
-        self.cache_features = cache_features
+        self.cache_zcp_scores = cache_zcp_scores  # cache after computing zero-cost proxies
+        self.cache_features = cache_features  # cache after computing features
         if cached_data is None and (cache_zcp_scores or cache_features):
             self.cached_data = pd.DataFrame()
 
-        self.zcp_predictors = {}
-        self.dataloader = dataloader
-        self.compute_new_zcps = compute_new_zcps
-
+        # raise exceptions if a network has no precomputed score for a feature or a zero-cost proxy in the cached data
         self.no_zcp_raise = no_zcp_raise
         self.no_feature_raise = no_feature_raise
 
     def compute_features(self, net: NetBase):
+        """
+        Compute all available features for a given network.
+        :param net: network to compute features for
+        :return: dictionary with computed features
+        """
         net_graph = None
         res = {}
+
+        # iterate over available features and compute/retrieve cached values
         for feat in self.features:
-            def feats_not_none(f):
-                if f is None:
-                    return False
+            def all_valid(f):
                 if not isinstance(f, dict):
                     return True
                 return all([(v is not None) for v in f.values()])
 
-            # if already computed, retrieve cached features
+            # if everything already computed, retrieve cached features
             cached_feats = self.get_cached_feature(net.get_hash(), feat.name)
-            if feats_not_none(cached_feats):
+            if cached_feats is not None and all_valid(cached_feats):
                 for k, v in cached_feats.items():
                     res[k] = v
                 continue
@@ -55,7 +80,7 @@ class GRAF:
             if self.no_feature_raise:
                 raise FeatureNotFoundException(f"Feature {feat.name} not found in precomputed data.")
 
-            # otherwise compute and optionally cache
+            # otherwise compute, optionally cache
             net_graph = net_graph if net_graph is not None else net.to_graph()
             f_res = feat(net_graph)
             f_res = {feat.name: f_res} if not isinstance(f_res, dict) else {f"{feat.name}_{k}": v for k, v in f_res.items()}
@@ -66,18 +91,31 @@ class GRAF:
 
         return res
 
-    def get_cached_feature(self, net: str, feat_name):
+    def get_cached_feature(self, net: str, feat_name: str) -> Dict[Hashable, Any] | None:
+        """
+        Retrieve cached features for a given network hash.
+        :param net: network hash
+        :param feat_name: name of the feature
+        :return: dictionary with cached features
+        """
         if self.cached_data is None or net not in self.cached_data.index:
             return None
 
+        # get all columns corresponding to one feature kind
         colnames = [c for c in self.cached_data.columns if c.startswith(feat_name)]
-        if not len(colnames):
+        if len(colnames) == 0:
             return None
 
-        features = self.cached_data.loc[net, colnames]
+        features = self.cached_data.loc[net][colnames]
         return features.to_dict()
 
-    def get_cached_zcp(self, net: str, zcp_key):
+    def get_cached_zcp(self, net: str, zcp_key: str) -> Any | None:
+        """
+        Retrieve cached zero-cost proxy score for a given network hash.
+        :param net: network hash
+        :param zcp_key: zero-cost proxy key
+        :return: cached score or None if not found
+        """
         # no caching or this zcp is not cached
         if self.cached_data is None or zcp_key not in self.cached_data.columns:
             return None
@@ -88,34 +126,49 @@ class GRAF:
 
         return self.cached_data.loc[net][zcp_key]
 
-    def compute_zcp(self, net, zcp_name):
-        assert self.dataloader is not None, "Must provide dataloader if computing zero_cost scores."
-        pred = self._zcp_predictor(zcp_name)
-        result = pred.query(net, dataloader=self.dataloader)
+    def compute_zcp(self, net: torch.nn.Module, zcp_name: str) -> float:
+        """
+        Compute zero-cost proxy score for a given network.
+        :param net: network to compute zero-cost proxy for
+        :param zcp_name: zero-cost proxy name
+        :return: zero-cost proxy score
+        """
+        predictor = self._zcp_predictor(zcp_name)
+        return predictor(net)
 
-        return result
+    def _zcp_predictor(self, name: str):
+        """
+        Get an initialized zero-cost proxy scorer or initialize it if not available.
+        :param name: zero-cost proxy name
+        :return: zero-cost proxy scorer
+        """
+        assert name in self.zcp_predictors, f"Zero-cost proxy {name} not available in the GRAF object."
 
-    def _zcp_predictor(self, name):
-        if name not in self.zcp_predictors:
-            self.zcp_predictors[name] = get_zcp_predictor(name)
+        if self.zcp_predictors[name] is None:
+            self.zcp_predictors[name] = get_zcp_predictor(name, dataloader=self.dataloader)
+
         return self.zcp_predictors[name]
 
-    def _cache_score(self, net: str, colname, score):
-        if colname not in self.cached_data.columns:
-            self.cached_data[colname] = None
+    def _cache_score(self, net: str, colname: str, score: float):
+        """
+        Cache a score for a given network hash.
+        :param net: network hash
+        :param colname: column name to store the score
+        :param score: score to cache
+        """
+        assert self.cached_data is not None, "No cached data available for storing scores."
+        self.cached_data.loc[net, colname] = [score]
 
-        if net not in self.cached_data.index:
-            self.cached_data.loc[net] = {c: None for c in self.cached_data.columns}
-
-        self.cached_data.loc[net, colname] = score
-
-    def compute_zcp_scores(self, net: NetBase, zcp_names):
-        if isinstance(zcp_names, str):
-            zcp_names = [zcp_names]
-
+    def compute_zcp_scores(self, net: NetBase) -> Dict[str, float | None]:
+        """
+        Compute zero-cost proxy scores for a given network.
+        :param net: network to compute zero-cost proxies for
+        :param zcp_names: list of zero-cost proxy names (or a single name)
+        :return: dictionary with computed zero-cost proxy scores
+        """
         model = None
         res = {}
-        for zcp_key in zcp_names:
+        for zcp_key in self.zcp_predictors.keys():
             # try to retrieve cached score
             result = self.get_cached_zcp(net.get_hash(), zcp_key)
 
@@ -142,40 +195,69 @@ class FeatureNotFoundException(Exception):
     pass
 
 
-def create_dataset(graf, nets: Iterable[NetBase], target_df=None, zcp_names: list[str] | None = None, drop_unreachables=True,
-                   zero_op=1, target_name='val_accs', use_zcp=False, use_features=True, use_onehot=False, verbose=True):
+def create_dataset(graf, nets: Iterable[NetBase], target_df: pd.DataFrame | None = None, target_name: str = 'val_accs',
+                   drop_unreachables: bool = True, zero_op: int = 1, 
+                   use_zcp: bool = False, use_features: bool = True, use_onehot: bool = False,
+                   verbose: bool = True) -> pd.DataFrame | Tuple[pd.DataFrame, pd.Series]:
+    """
+    Create a dataset from a list of networks. Depending on the configuration (via `use_*` arguments), it computes features, zero-cost proxies,
+    and one-hot encoding of the network graph.
+
+    The result is a pandas dataframe with computed features, zero-cost proxies, and/or one-hot encoding. If provided, a series of corresponding
+    target values is returned.
+
+    Optionally, it can also drop networks with unreachable operations (e.g. due to zero-op in NAS-Bench-201) - i.e. duplicates in the search space.
+
+    :param graf: GRAF object for computing features and zero-cost proxies
+    :param nets: list of networks for which to compute features and zero-cost proxies
+    :param target_df: dataframe with target values for each network (optional)
+    :param target_name: name of the target column in `target_df`
+    :param drop_unreachables: drop networks with unreachable operations (e.g. due to zero-op in NAS-Bench-201)
+    :param zero_op: index of the zero operation for `drop_unreachables`
+    :param use_zcp: if True, compute zero-cost proxies
+    :param use_features: if True, compute features
+    :param use_onehot: if True, compute one-hot encoding of the network graph
+    :param verbose: if True, show progress bar
+    :return: pandas dataframe with computed features and zero-cost proxies (and a series of corresponding target values if provided)
+    """
     dataset = []
     y = []
     index = []
     for net in tqdm(nets, disable=not verbose):
+        # discard networks with unreachable operations - these are not unique in the search space
         if drop_unreachables:
             _, edges = net.to_graph()
             new_edges = remove_zero_branches(edges, zero_op=zero_op)
             if new_edges != edges:
                 continue
 
+        # get the corresponding target value
         if target_df is not None:
             target = target_df.loc[net.get_hash()][target_name]
             y.append(target)
 
+        # compute features for the network
         features = {}
         if use_features:
             features = graf.compute_features(net)
 
+        # compute zero-cost proxies for the network
         if use_zcp:
-            assert zcp_names is not None
-            zcps = graf.compute_zcp_scores(net, zcp_names)
+            zcps = graf.compute_zcp_scores(net)
             features = {**features, **zcps}
 
+        # compute one-hot encoding of the network graph
         if use_onehot:
             onehot = net.to_onehot()
             features = {**features, **{f"onehot_{i}": o for i, o in enumerate(onehot)}}
 
+        # append the computed features to the dataset, and the network hash to the index
         index.append(net.get_hash())
         dataset.append(features)
 
-    dataset = pd.DataFrame(dataset, index=index)
+    # create a dataset dataframe and return it with the target values (if provided)
+    df = pd.DataFrame(dataset, index=index)
     if not len(y):
-        return dataset
+        return df
 
-    return dataset, pd.Series(y, index=index)
+    return df, pd.Series(y, index=index)

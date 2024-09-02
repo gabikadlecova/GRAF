@@ -3,6 +3,9 @@ import torch
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+
+import torch.utils
+import torch.utils.data
 from graf_nas.search_space.base import NetBase
 from naslib.predictors.zerocost import ZeroCost  # type: ignore
 from naslib.utils import get_train_val_loaders  # type: ignore
@@ -33,10 +36,10 @@ class ZeroCostNASLibProxy(ZeroCostBase):
     """
     Zero-cost proxy wrapper of the NASLib ZeroCost predictor.
     """
-    def __init__(self, name: str, proxy: ZeroCost, data_loader: Optional[torch.utils.data.DataLoader] = None):
+    def __init__(self, name: str, proxy: ZeroCost, dataloader: Optional[torch.utils.data.DataLoader] = None):
         super().__init__(name)
         self.proxy = proxy
-        self.data_loader = data_loader
+        self.data_loader = dataloader
 
     def __call__(self, net: torch.nn.Module) -> float:
         return self.proxy.query(net, dataloader=self.data_loader)
@@ -57,7 +60,7 @@ def load_cached_zcp(net_hash: str, proxy_name: str, data_scores: pd.DataFrame):
     return data_scores.loc[net_hash, proxy_name]
 
 
-def get_zcp_predictor(proxy: str, **kwargs) -> ZeroCostBase:
+def get_zcp_predictor(proxy: str, dataloader: Optional[torch.utils.data.DataLoader] = None, **kwargs) -> ZeroCostBase:
     """
     Get a zero-cost proxy scorer from NASLib or from graf_nas.features.zero_cost.zero_cost_proxies.
 
@@ -65,7 +68,8 @@ def get_zcp_predictor(proxy: str, **kwargs) -> ZeroCostBase:
     :return: zero-cost proxy callable scorer
     """
     if proxy in available_measures:
-        return ZeroCostNASLibProxy(proxy, ZeroCost(proxy, **kwargs))
+        assert dataloader is not None, "Must provide dataloader if computing NASLib zero_cost scores."
+        return ZeroCostNASLibProxy(proxy, ZeroCost(proxy, **kwargs), dataloader=dataloader)
     
     if proxy in zero_cost_proxies:
         return zero_cost_proxies[proxy](**kwargs)
