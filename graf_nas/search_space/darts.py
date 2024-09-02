@@ -103,7 +103,7 @@ def get_ops_nb301() -> List[str]:
             "dil_conv_5x5"]
 
 
-def darts_cell_to_graph(genotype, cache_graph=True):
+def darts_cell_to_graph(genotype, cache_graph: bool = True) -> NetGraph:
     """
     Converts a DARTS genotype to a graph representation.
     Adapted from the darts plotting script.
@@ -133,7 +133,7 @@ def darts_cell_to_graph(genotype, cache_graph=True):
     return NetGraph(ops, edges, cache_graph=cache_graph)
 
 
-def darts_to_graph(net: str, cache_graph=True) -> Tuple[NetGraph, NetGraph]:
+def darts_to_graph(net: str, cache_graph: bool = True) -> Tuple[NetGraph, NetGraph]:
     """
     Converts a DARTS network hash to its graph representation
     :param net: DARTS network hash

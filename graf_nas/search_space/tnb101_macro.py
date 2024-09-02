@@ -1,10 +1,10 @@
 import numpy as np
 import torch
-from graf_nas.search_space.conversions import convert_to_naslib, NetBase
+from graf_nas.search_space.base import convert_to_naslib, NetBase
 
 from naslib.search_spaces.transbench101.encodings import encode_adjacency_one_hot_transbench_macro_op_indices  # type: ignore
 from naslib.search_spaces.transbench101.graph import TransBench101SearchSpaceMacro  # type: ignore
-from typing import Dict, List, Tuple, Iterator
+from typing import Dict, List, Iterator
 
 
 class TNB101MacroGraph:

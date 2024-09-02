@@ -5,9 +5,9 @@ import warnings
 from naslib.search_spaces.transbench101.encodings import encode_adjacency_one_hot_transbench_micro_op_indices  # type: ignore
 from naslib.search_spaces.transbench101.graph import TransBench101SearchSpaceMicro  # type: ignore
 
-from graf_nas.search_space.conversions import convert_to_naslib, NetBase, NetGraph
+from graf_nas.search_space.base import convert_to_naslib, NetBase, NetGraph
 from graf_nas.search_space.nasbench201 import parse_ops_nb201, nb201_like_to_graph
-from typing import Dict, List, Tuple, Iterator
+from typing import Dict, Iterator
 
 
 class TNB101_micro(NetBase):

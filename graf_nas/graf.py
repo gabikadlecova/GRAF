@@ -7,7 +7,7 @@ from tqdm import tqdm
 from graf_nas.features import feature_dicts
 from graf_nas.features.config import load_from_config
 from graf_nas.features.zero_cost import get_zcp_predictor
-from graf_nas.search_space.conversions import NetBase
+from graf_nas.search_space.base import NetBase
 from graf_nas.search_space.reduntant import remove_zero_branches
 
 

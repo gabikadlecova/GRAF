@@ -2,7 +2,7 @@ import networkx as nx  # type: ignore
 import numpy as np
 from abc import ABC, abstractmethod
 import torch
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Any
 
 
 class NetBase(ABC):
@@ -33,7 +33,7 @@ class NetGraph:
     - ops - the operation map is a dict of operation ids mapped to operation names.
     - edges - a dict of edge names (pair of connections (node, node)) mapped to operation ids.
     """
-    def __init__(self, ops: Dict[int, str], edges: Dict[Tuple[int, int], int], cache_graph: bool = True):
+    def __init__(self, ops: Dict[int, str], edges: Dict[Tuple[Any, Any], int], cache_graph: bool = True):
         """
         :param ops: dict of operation ids mapped to operation names
         :param edges: dict of edge names mapped to operation ids
@@ -42,7 +42,7 @@ class NetGraph:
         self.ops = ops
         self.edges = edges
         self.cache_graph = cache_graph
-        self._graph = None
+        self._graph: Optional[nx.DiGraph] = None
 
     def to_graph(self) -> nx.DiGraph:
         """
@@ -52,7 +52,7 @@ class NetGraph:
         if self._graph is not None:
             return self._graph
 
-        G = nx.DiGraph()
+        G: nx.DiGraph = nx.DiGraph()
         for e_from, e_to in self.edges.keys():
             G.add_edge(e_from, e_to)
 

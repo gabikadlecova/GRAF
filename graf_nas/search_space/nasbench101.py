@@ -1,11 +1,11 @@
 import copy
 import math
 import naslib  # type: ignore
-import networkx as nx  # type: ignore
+import networkx as nx
 import numpy as np
 import torch
 
-from graf_nas.search_space.conversions import convert_to_naslib, NetBase, OpNodesNetGraph
+from graf_nas.search_space.base import convert_to_naslib, NetBase, OpNodesNetGraph
 from naslib.search_spaces.nasbench101.conversions import convert_tuple_to_spec, convert_spec_to_tuple  # type: ignore
 from naslib.search_spaces.nasbench101.graph import NasBench101SearchSpace  # type: ignore
 from typing import Dict, List, Tuple, Iterator

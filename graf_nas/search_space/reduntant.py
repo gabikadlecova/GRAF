@@ -1,6 +1,6 @@
-import networkx as nx  # type: ignore
+import networkx as nx
 
-from graf_nas.search_space.conversions import NetGraph
+from graf_nas.search_space.base import NetGraph
 
 
 def remove_zero_branches(net: NetGraph, zero_op: int = 1, source: int = 1, target: int = 4) -> NetGraph:

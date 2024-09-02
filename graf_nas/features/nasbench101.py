@@ -2,11 +2,12 @@ import networkx as nx
 import numpy as np
 
 from graf_nas.features.base import count_ops_opnodes, min_path_len_opnodes, max_num_on_path_opnodes, get_start_end, \
-    get_in_out_edges_opnodes, to_graph
+    get_in_out_edges_opnodes, to_graph, OpNodesNetGraph
+from typing import List, Dict
 
 
-def node_degree(net, allowed, start=0, end=1):
-    _, ops, graph = net
+def node_degree(net: OpNodesNetGraph, allowed: List[int], start: int = 0, end: int = 1) -> Dict[str, float]:
+    ops = net.op_ids
     in_edges, out_edges = get_in_out_edges_opnodes(net, allowed)
 
     start, end = get_start_end(ops, start, end)
@@ -16,12 +17,12 @@ def node_degree(net, allowed, start=0, end=1):
             'avg_out': get_func(out_edges, np.mean)}
 
 
-def count_edges(net):
-    return len(net[2].edges)
+def count_edges(net: OpNodesNetGraph) -> int:
+    return len(net.graph.edges)
 
 
-def num_of_paths(net, allowed, start=0, end=1):
-    _, ops, graph = net
+def num_of_paths(net: OpNodesNetGraph, allowed: List[int], start: int = 0, end: int = 1) -> int:
+    ops, graph = net.op_ids, net.graph
 
     edges = [e for e in graph.edges if ops[e[0]] in allowed or ops[e[1]] in allowed]
     graph = to_graph(edges)

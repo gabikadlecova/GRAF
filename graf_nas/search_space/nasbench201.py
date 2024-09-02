@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from naslib.search_spaces.nasbench201.encodings import encode_adjacency_one_hot_op_indices  # type: ignore
 
-from graf_nas.search_space.conversions import convert_to_naslib, NetBase, NetGraph
+from graf_nas.search_space.base import convert_to_naslib, NetBase, NetGraph
 from naslib.search_spaces.nasbench201.graph import NasBench201SearchSpace  # type: ignore
 from typing import List, Tuple, Dict
 

@@ -4,6 +4,8 @@ from graf_nas.search_space.nasbench201 import NB201
 from graf_nas.search_space.tnb101_macro import TNB101_macro
 from graf_nas.search_space.tnb101_micro import TNB101_micro
 
+
+# Maps search space names to their classes
 searchspace_classes = {
     'nb101': NB101,
     'nb201': NB201,
@@ -12,6 +14,8 @@ searchspace_classes = {
     'tnb101_macro': TNB101_macro
 }
 
+
+# Maps graf_nas names to NASLib search space names
 dataset_api_maps = {
     'nb101': 'nasbench101',
     'nb201': 'nasbench201',

@@ -1,4 +1,8 @@
-def count_switches(net):
+from graf_nas.search_space.tnb101_macro import TNB101MacroGraph
+from typing import Dict
+
+
+def count_switches(net: TNB101MacroGraph) -> Dict[str, int]:
     op_counts = {}
 
     def get_key(channel, stride):
@@ -14,18 +18,18 @@ def count_switches(net):
     return op_counts
 
 
-def get_state_at_i(net):
+def get_state_at_i(net: TNB101MacroGraph) -> Dict[str, int]:
     channel = 0
     stride = 0
 
     res = {}
     for i in range(6):
-        if i >= len(net):
+        if i >= len(net.ops):
             channel = 0
             stride = 0
         else:
-            channel += int(net[i]['channel'])
-            stride += int(net[i]['stride'])
+            channel += int(net.ops[i]['channel'])
+            stride += int(net.ops[i]['stride'])
 
         res[f"ch_pos_{i}"] = channel
         res[f"s_pos_{i}"] = stride
