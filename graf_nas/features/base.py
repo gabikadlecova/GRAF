@@ -1,23 +1,31 @@
 import networkx as nx
-from graf_nas.search_space.base import NetGraph, OpNodesNetGraph
+from graf_nas.search_space.base import NetBase, NetGraph, OpNodesNetGraph
 from collections.abc import Callable
 from typing import Dict, List, Iterable, Tuple, Optional, Any
 
 
 class Feature:
-    def __init__(self, name, func):
+    """
+    Represents a feature (or a set of similar features) that can be computed given a network.
+    """
+    def __init__(self, name: str, func: Callable[[NetBase], Any | Dict[str, Any]]):
         self.name = name
         self.func = func
 
     def __str__(self):
         return self.name
 
-    def __call__(self, net):
+    def __call__(self, net: NetBase) -> Any | Dict[str, Any]:
         return self.func(net)
 
 
 class ConstrainedFeature:
-    def __init__(self, name, func, allowed):
+    """
+    Represents a feature (or a set of similar features) that can be computed given a network.
+    The feature is constrained to a subset of operations (represented by a list of allowed ids).
+    """
+    def __init__(self, name: str, func: Callable[[NetBase, Iterable[Any]], Any | Dict[str, Any]],
+                 allowed: Iterable[Any]):
         self.name = name
         self.func = func
         self.allowed = allowed
@@ -25,18 +33,28 @@ class ConstrainedFeature:
     def __str__(self):
         return self.name
 
-    def __call__(self, net):
+    def __call__(self, net) -> Any | Dict[str, Any]:
         return self.func(net, self.allowed)
 
 
-def to_graph(edges):
-    G = nx.DiGraph()
+def to_graph(edges: Iterable[Tuple[Any, Any]]) -> nx.DiGraph:
+    """
+    Convert a list of edges to a directed graph.
+    :param edges: list of edges
+    :return: directed graph
+    """
+    G: nx.DiGraph = nx.DiGraph()
     for e_from, e_to in edges:
         G.add_edge(e_from, e_to)
     return G
 
 
 def count_ops_opnodes(net: OpNodesNetGraph) -> Dict[int, int]:
+    """
+    Count the number of operations in the network.
+    :param net: network with operations on nodes
+    :return: dictionary with the operation id as key and number of occurrences as value
+    """
     op_names, ops = net.ops, net.op_ids
     op_counts = {i: 0 for i, _ in enumerate(op_names)}
     for o in ops:
@@ -46,6 +64,11 @@ def count_ops_opnodes(net: OpNodesNetGraph) -> Dict[int, int]:
 
 
 def count_ops(net: NetGraph) -> Dict[int, int]:
+    """
+    Count the number of operations in the network.
+    :param net: network with operations on edges
+    :return: dictionary with the operation id as key and number of occurrences as value
+    """
     ops, edges = net.ops, net.edges
     op_counts = {i: 0 for i in ops.keys()}
     for val in edges.values():
@@ -55,6 +78,12 @@ def count_ops(net: NetGraph) -> Dict[int, int]:
 
 
 def get_in_out_edges_opnodes(net: OpNodesNetGraph, allowed: Iterable[int]):
+    """
+    Get the incoming and outgoing edges for each operation in the network.
+    :param net: network with operations on nodes
+    :param allowed: list of allowed operation ids
+    :return: two dictionaries with operation ids as keys and lists of incoming/outgoing edges as values
+    """
     ops, graph = net.op_ids, net.graph
     in_edges: Dict[int, List[int]] = {i: [] for i, _ in enumerate(ops)}
     out_edges: Dict[int, List[int]] = {i: [] for i, _ in enumerate(ops)}
@@ -69,6 +98,12 @@ def get_in_out_edges_opnodes(net: OpNodesNetGraph, allowed: Iterable[int]):
 
 
 def get_in_out_edges(net: NetGraph, allowed: Iterable[int]):
+    """
+    Get the incoming and outgoing edges for each operation in the network.
+    :param net: network with operations on edges
+    :param allowed: list of allowed operation ids
+    :return: two dictionaries with operation ids as keys and lists of incoming/outgoing edges as values
+    """
     G = net.to_graph()
 
     in_edges = {k: [e for e in G.edges if e[0] == k and net.edges[e] in allowed] for k in G.nodes}
@@ -84,6 +119,13 @@ def _min_path(G: nx.DiGraph, start: Any, end: Any, max_val: int) -> int:
 
 
 def get_start_end(ops: List[int], start: int, end: int) -> Tuple[int, int]:
+    """
+    Get the indices of the start and end operation in the operations list.
+    :param ops: list of operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :return: tuple with the indices of the start and end operation
+    """
     res_start, res_end = None, None
     for i, o in enumerate(ops):
         if o == start:
@@ -98,6 +140,16 @@ def get_start_end(ops: List[int], start: int, end: int) -> Tuple[int, int]:
 
 
 def is_valid_opnodes(op: int, allowed: Iterable[int], start: int = 0, end: int = 1) -> bool:
+    """
+    Check if an operation is valid based on the allowed operations, and ids of the
+    start/end operations. Anything not in the allowed list (and not start/end) is considered invalid.
+
+    :param op: operation id
+    :param allowed: list of allowed operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :return: True if the operation is valid, False otherwise
+    """
     if op == start or op == end or op in allowed:
         return True
     return False
@@ -105,6 +157,17 @@ def is_valid_opnodes(op: int, allowed: Iterable[int], start: int = 0, end: int =
 
 def min_path_len_opnodes(net: OpNodesNetGraph, allowed: Iterable[int], start: int = 0,
                          end: int = 1, max_val: Optional[int] = None) -> int:
+    """
+    Compute the minimum path length between two operations in the network.
+    Only edges between nodes marked with allowed operations are considered.
+
+    :param net: network with operations on nodes
+    :param allowed: list of allowed operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :param max_val: maximum value to return if no path is found
+    :return: minimum path length between the start and end operation
+    """
     ops, graph = net.op_ids, net.graph
 
     # filter out only allowed edges
@@ -120,6 +183,17 @@ def min_path_len_opnodes(net: OpNodesNetGraph, allowed: Iterable[int], start: in
 
 
 def min_path_len(net: NetGraph, allowed: List[Any], start: Any = 1, end: Any = 4, max_val: Optional[int] = None) -> int:
+    """
+    Compute the minimum path length between two operations in the network.
+    Only edges marked with allowed operations are considered.
+    
+    :param net: network with operations on edges
+    :param allowed: list of allowed operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :param max_val: maximum value to return if no path is found
+    :return: minimum path length between the start and end operation
+    """
     edges = net.edges
     active_edges = {e for e, v in edges.items() if v in allowed}
 
@@ -137,6 +211,18 @@ def _max_num_path(G: nx.DiGraph, start: Any, end: Any, compute_weight: Callable)
 
 
 def max_num_on_path_opnodes(net: OpNodesNetGraph, allowed: List[Any], start: Any = 0, end: Any = 1) -> int:
+    """
+    Compute the maximum number of operations on the path between two operations in the network.
+    Only edges between nodes marked with allowed operations are considered.
+
+    The network must be a directed acyclic graph.
+    
+    :param net: network with operations on nodes
+    :param allowed: list of allowed operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :return: maximum number of operations on the path between the start and end operation
+    """
     ops, graph = net.op_ids, net.graph
 
     def is_allowed(node):
@@ -156,6 +242,18 @@ def max_num_on_path_opnodes(net: OpNodesNetGraph, allowed: List[Any], start: Any
 
 
 def max_num_on_path(net: NetGraph, allowed: List[Any], start: Any = 1, end: Any = 4) -> int:
+    """
+    Compute the maximum number of operations on the path between two operations in the network.
+    Only edges marked with allowed operations are considered.
+    
+    The network must be a directed acyclic graph.
+    
+    :param net: network with operations on edges
+    :param allowed: list of allowed operation ids
+    :param start: start operation id
+    :param end: end operation id
+    :return: maximum number of operations on the path between the start and end operation
+    """
     edges = net.edges
     
     def compute_weight(start, end, _):

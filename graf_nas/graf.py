@@ -7,7 +7,6 @@ import torch.utils
 import torch.utils.data
 from tqdm import tqdm
 
-from graf_nas.features import feature_dicts
 from graf_nas.features.config import load_from_config
 from graf_nas.features.zero_cost import get_zcp_predictor, ZeroCostBase
 from graf_nas.search_space.base import NetBase
@@ -15,9 +14,9 @@ from graf_nas.search_space.reduntant import remove_zero_branches
 
 
 class GRAF:
-    def __init__(self, benchmark: str, features=None, zcp_predictors: List[str | ZeroCostBase] | None = None,
+    def __init__(self, benchmark: str, features=None, zcp_predictors: List[str | ZeroCostBase] | str | ZeroCostBase | None = None,
                  dataloader: Optional[torch.utils.data.DataLoader] = None,
-                 cached_data: Optional[pd.DataFrame] = None, cache_zcp_scores: bool = True, cache_features: bool = True,
+                 cached_data: Optional[pd.DataFrame | Dict] = None, cache_zcp_scores: bool = True, cache_features: bool = True,
                  compute_new_zcps: bool = False, no_zcp_raise: bool = False, no_feature_raise: bool = False):
 
         # network benchmark (search space)
@@ -26,12 +25,12 @@ class GRAF:
         # features to compute - either as objects, dict config, or path to a config file
         self.features = features if features is not None else []
         if isinstance(features, str) or isinstance(features, dict):
-            self.features = load_from_config(features, feature_dicts[benchmark])  # load features from cfg file
+            self.features = load_from_config(features, benchmark)  # load features from cfg file
 
         # zero-cost proxy predictors to use - either as objects or names
         self.zcp_predictors: Dict[str, ZeroCostBase | None] = {}
         zcp_predictors = zcp_predictors if zcp_predictors is not None else []
-        zcp_predictors = [zcp_predictors] if isinstance(zcp_predictors, str) else zcp_predictors
+        zcp_predictors = [zcp_predictors] if isinstance(zcp_predictors, str) or isinstance(zcp_predictors, ZeroCostBase) else zcp_predictors
         for zcp in zcp_predictors:
             if isinstance(zcp, str):
                 self.zcp_predictors[zcp] = None
@@ -43,11 +42,15 @@ class GRAF:
         self.compute_new_zcps = compute_new_zcps  # if False, return None if zcp is not found in cached data
 
         # cached data with precomputed features and/or zero-cost proxies
-        self.cached_data = cached_data
         self.cache_zcp_scores = cache_zcp_scores  # cache after computing zero-cost proxies
         self.cache_features = cache_features  # cache after computing features
-        if cached_data is None and (cache_zcp_scores or cache_features):
-            self.cached_data = pd.DataFrame()
+        if cached_data is None:
+            self.cached_data: Dict[str, Dict] | None = {} if (cache_zcp_scores or cache_features) else None
+        elif isinstance(cached_data, pd.DataFrame):
+            self.cached_data = {k: cached_data.loc[k].to_dict() for k in cached_data.index}
+        else:
+            assert isinstance(cached_data, dict), "Cached data must be a dictionary or a DataFrame."
+            self.cached_data = cached_data
 
         # raise exceptions if a network has no precomputed score for a feature or a zero-cost proxy in the cached data
         self.no_zcp_raise = no_zcp_raise
@@ -74,7 +77,7 @@ class GRAF:
             if cached_feats is not None and all_valid(cached_feats):
                 for k, v in cached_feats.items():
                     res[k] = v
-                continue
+                return res
 
             # optionally raise if not available
             if self.no_feature_raise:
@@ -98,16 +101,16 @@ class GRAF:
         :param feat_name: name of the feature
         :return: dictionary with cached features
         """
-        if self.cached_data is None or net not in self.cached_data.index:
+        if self.cached_data is None or net not in self.cached_data:
             return None
 
         # get all columns corresponding to one feature kind
-        colnames = [c for c in self.cached_data.columns if c.startswith(feat_name)]
+        cached_entry = self.cached_data[net]
+        colnames = [c for c in cached_entry.keys() if c.startswith(feat_name)]
         if len(colnames) == 0:
             return None
 
-        features = self.cached_data.loc[net][colnames]
-        return features.to_dict()
+        return {k: cached_entry[k] for k in colnames}
 
     def get_cached_zcp(self, net: str, zcp_key: str) -> Any | None:
         """
@@ -117,14 +120,13 @@ class GRAF:
         :return: cached score or None if not found
         """
         # no caching or this zcp is not cached
-        if self.cached_data is None or zcp_key not in self.cached_data.columns:
+        if self.cached_data is None or net not in self.cached_data:
             return None
 
-        # no zcp data for this net
-        if net not in self.cached_data.index:
-            return None
+        net_entry = self.cached_data[net]
 
-        return self.cached_data.loc[net][zcp_key]
+        # return zcp data or None if not found
+        return net_entry[zcp_key] if zcp_key in net_entry else None
 
     def compute_zcp(self, net: torch.nn.Module, zcp_name: str) -> float:
         """
@@ -157,7 +159,9 @@ class GRAF:
         :param score: score to cache
         """
         assert self.cached_data is not None, "No cached data available for storing scores."
-        self.cached_data.loc[net, colname] = [score]
+
+        net_entry = self.cached_data.setdefault(net, {})
+        net_entry[colname] = score
 
     def compute_zcp_scores(self, net: NetBase) -> Dict[str, float | None]:
         """
@@ -226,9 +230,9 @@ def create_dataset(graf, nets: Iterable[NetBase], target_df: pd.DataFrame | None
     for net in tqdm(nets, disable=not verbose):
         # discard networks with unreachable operations - these are not unique in the search space
         if drop_unreachables:
-            _, edges = net.to_graph()
-            new_edges = remove_zero_branches(edges, zero_op=zero_op)
-            if new_edges != edges:
+            graph = net.to_graph()
+            new_graph = remove_zero_branches(graph, zero_op=zero_op)
+            if new_graph.edges != graph.edges:
                 continue
 
         # get the corresponding target value

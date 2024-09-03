@@ -4,29 +4,25 @@ import pickle
 import time
 from datetime import datetime
 
+from sklearn.model_selection import train_test_split  # type: ignore
 import wandb
 
 import pandas as pd
 from scipy.stats import spearmanr, kendalltau
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor  # type: ignore
+from sklearn.metrics import r2_score, mean_squared_error  # type: ignore
 
 from graf_nas.features.config import load_from_config
 from graf_nas.graf import create_dataset, GRAF
-from graf_nas.sample import sampling_strategies
 from graf_nas.search_space import searchspace_classes, dataset_api_maps, DARTS
-from naslib.utils import get_dataset_api
+from naslib.utils import get_dataset_api  # type: ignore
 
 
 zcps = ['epe_nas', 'fisher', 'flops', 'grad_norm', 'grasp', 'jacov', 'l2_norm', 'nwot', 'params', 'plain', 'snip', 'synflow', 'zen']
 
-#kwargs = {'cluster_method': 'KMeans', 'weighted': False, 'replace': False, 'n_clusters': 32}
-kwargs = {'cluster_method': 'hier', 'weighted': True, 'replace': True, 'n_clusters': 100}
-#kwargs = {'cluster_method': 'DBSCAN', 'weighted': False, 'replace': False, 'eps': 10}
 
-def get_train_test_splits(feature_dataset, y, train_size, test_size, seed, strategy):
-    train_X, train_y = sampling_strategies[strategy](feature_dataset, y, train_size, seed, **kwargs)
-    test_X, test_y = sampling_strategies['random'](feature_dataset, y, test_size, seed + 1)
+def get_train_test_splits(feature_dataset, y, train_size, seed):
+    train_X, test_X, train_y, test_y = train_test_split(feature_dataset, y, train_size=train_size, random_state=seed)
     return {'train_X': train_X, 'train_y': train_y, 'test_X': test_X, 'test_y': test_y}
 
 
@@ -56,6 +52,7 @@ def get_timestamp():
 def train_end_evaluate(args):
     benchmark, dataset = args['benchmark'], args['dataset']
 
+    assert args['debug_'] or args['wandb_key_'] is not None, "Need to provide a wandb key for syncing. To run without any logging, pass --debug_ to the script."
     # initialize wandb
     if not args['debug_']:
         cfg_args = {k: v for k, v in args.items() if not k.endswith('_')}
@@ -84,18 +81,19 @@ def train_end_evaluate(args):
         cached_data = pd.concat([*cached_zcp, *cached_features], axis=1)
 
     # load target data, compute features
-    filename_args = ['cache_prefix_', 'benchmark', 'dataset', 'use_features', 'use_zcp', 'use_onehot']
-    cache_path = f"{'_'.join([str(args[fa]) for fa in filename_args])}_{os.path.splitext(os.path.basename(args['config']))}.pickle"
+    filename_args = ['benchmark', 'dataset', 'use_features', 'use_zcp', 'use_onehot']
+    cache_path = f"{'_'.join([f'{fa}-{str(args[fa])}' for fa in filename_args])}_{os.path.splitext(os.path.basename(args['config']))[0]}.pickle"
+    cache_path = f"{args['cache_prefix_']}_{cache_path}" if args['cache_prefix_'] is not None else cache_path
     if args['cache_dataset_'] and os.path.exists(cache_path):
+        print(f"Loading cached dataset from {cache_path}.")
         with open(cache_path, 'rb') as f:
             cd = pickle.load(f)
             feature_dataset, y = cd['dataset'], cd['y']
     else:
         y = pd.read_csv(args['target_path_'], index_col=0)
-        graf_model = GRAF(feature_funcs, benchmark, cached_data=cached_data, cache_features=True, no_zcp_raise=True)
-        feature_dataset, y = create_dataset(graf_model, net_iterator, target_df=y, zcp_names=zcps,
-                                            target_name=args['target_name'], use_features=args['use_features'],
-                                            use_zcp=args['use_zcp'], use_onehot=args['use_onehot'],
+        graf_model = GRAF(benchmark, features=feature_funcs, zcp_predictors=zcps, cached_data=cached_data, cache_features=True, no_zcp_raise=True)
+        feature_dataset, y = create_dataset(graf_model, net_iterator, target_df=y, target_name=args['target_name'],
+                                            use_features=args['use_features'], use_zcp=args['use_zcp'], use_onehot=args['use_onehot'],
                                             drop_unreachables='micro' in benchmark or benchmark == 'nb201')
         if args['cache_dataset_']:
             with open(cache_path, 'wb') as f:
@@ -107,8 +105,7 @@ def train_end_evaluate(args):
     # fit and eval N times
     for i in range(args['n_train_evals']):
         data_seed = args['seed'] + i
-        data_splits = get_train_test_splits(feature_dataset, y, args['train_size'], args['test_size'],
-                                            data_seed, args['sample_strategy'])
+        data_splits = get_train_test_splits(feature_dataset, y, args['train_size'], data_seed)
 
         res = eval_model(model, data_splits)
         if not args['debug_']:
@@ -134,11 +131,8 @@ if __name__ == "__main__":
                         help="Number of training samples on which the model is trained and evaluated.")
     parser.add_argument('--train_size', default=100, type=int,
                         help="Number of architectures to sample for the training set.")
-    parser.add_argument('--test_size', default=1000, type=int,
-                        help="Number of architectures to sample for the test set.")
-    parser.add_argument('--sample_strategy', default="random", help="Strategy for sampling train networks.")
-    parser.add_argument('--wandb_key_', required=True, help='Login key to wandb.')
-    parser.add_argument('--wandb_project_', default='graf_sampling', help="Wandb project name.")
+    parser.add_argument('--wandb_key_', default=None, help='Login key to wandb.')
+    parser.add_argument('--wandb_project_', default='graf', help="Wandb project name.")
     parser.add_argument('--debug_', action='store_true', help="If True, do not sync to wandb.")
     parser.add_argument('--use_features', action='store_true', help="If True, use features from GRAF.")
     parser.add_argument('--use_zcp', action='store_true', help="If True, use zero-cost proxies.")
@@ -147,5 +141,5 @@ if __name__ == "__main__":
     parser.add_argument('--cache_dataset_', action='store_true', help="If True, cache everything including zps.")
 
     args = parser.parse_args()
-    args = vars(args)
-    train_end_evaluate(args)
+    args_dict = vars(args)
+    train_end_evaluate(args_dict)
