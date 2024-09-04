@@ -262,4 +262,4 @@ def max_num_on_path(net: NetGraph, allowed: List[Any], start: Any = 1, end: Any 
     path_len = _max_num_path(to_graph([k for k in edges.keys() if edges[k] in allowed]), start, end, compute_weight)
 
     # adjust by 1 -> edge count
-    return path_len - 1
+    return (path_len - 1) if path_len > 0 else 0

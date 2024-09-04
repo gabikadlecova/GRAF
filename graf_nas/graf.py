@@ -77,7 +77,7 @@ class GRAF:
             if cached_feats is not None and all_valid(cached_feats):
                 for k, v in cached_feats.items():
                     res[k] = v
-                return res
+                continue
 
             # optionally raise if not available
             if self.no_feature_raise:
