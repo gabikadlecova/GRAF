@@ -26,12 +26,13 @@ class TNB101_macro(NetBase):
     naslib_object = None  # TransBench101SearchSpaceMacro object (for architecture iterator)
     random_iterator = False  # Returns all architectures from the benchmark systematically   
 
-    def __init__(self, net: str):
+    def __init__(self, net: str, cache_model: bool = False):
         """
         Initializes a TransBench-101 network.
         :param net: network string hash (tuple of sequential operation ids)
+        :param cache_model: whether to cache the torch model in self.model
         """
-        super().__init__(net)
+        super().__init__(net, cache_model=cache_model)
 
     def to_graph(self) -> TNB101MacroGraph:
         """
@@ -47,7 +48,7 @@ class TNB101_macro(NetBase):
         """
         return encode_adjacency_one_hot_transbench_macro_op_indices(eval(self.net))
 
-    def get_model(self) -> torch.nn.Module:
+    def create_model(self) -> torch.nn.Module:
         """
         Converts the network to a naslib model - a torch module.
         """

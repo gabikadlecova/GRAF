@@ -18,12 +18,13 @@ class NB101(NetBase):
     naslib_object = None  # NasBench101SearchSpace object (for architecture iterator)
     random_iterator = False  # Returns all architectures from the benchmark systematically
 
-    def __init__(self, net: str):
+    def __init__(self, net: str, cache_model: bool = False):
         """
         Initializes a NAS-Bench-101 network.
         :param net: network string hash (flattened adjacency matrix and list of operations)
+        :param cache_model: whether to cache the torch model in self.model
         """
-        super().__init__(net)
+        super().__init__(net, cache_model=cache_model)
 
     def to_graph(self) -> OpNodesNetGraph:
         """
@@ -39,7 +40,7 @@ class NB101(NetBase):
         """
         return nb101_to_onehot(eval(self.net))
 
-    def get_model(self) -> torch.nn.Module:
+    def create_model(self) -> torch.nn.Module:
         """
         Converts the network to a naslib model - a torch module.
         :return: torch model

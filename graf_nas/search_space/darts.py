@@ -16,12 +16,14 @@ class DARTS(NetBase):
 
     random_iterator = True  # Returns random architectures from the search space
 
-    def __init__(self, net: str, cache_graph: bool = True):
+    def __init__(self, net: str, cache_graph: bool = True, cache_model: bool = False):
         """
         Initializes a DARTS network.
         :param net: network string hash (hashable NASLib compact representation)
+        :param cache_graph: caching the networkx graph representation
+        :param cache_model: whether to cache the torch model in self.model
         """
-        super().__init__(net)
+        super().__init__(net, cache_model=cache_model)
         self.cache_graph = cache_graph
 
     def to_graph(self) -> Tuple[NetGraph, NetGraph]:
@@ -38,7 +40,7 @@ class DARTS(NetBase):
         """
         return encode_adj(self.net)
 
-    def get_model(self) -> torch.nn.Module:
+    def create_model(self) -> torch.nn.Module:
         """
         Converts the network to a naslib model - a torch module.
         :return: torch model

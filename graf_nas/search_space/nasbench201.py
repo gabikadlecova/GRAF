@@ -14,12 +14,14 @@ class NB201(NetBase):
     naslib_object = None  # NasBench201SearchSpace object (for architecture iterator)
     random_iterator = False  # Returns all architectures from the benchmark systematically
 
-    def __init__(self, net: str, cache_graph: bool = True):
+    def __init__(self, net: str, cache_graph: bool = True, cache_model: bool = False):
         """
         Initializes a NAS-Bench-201 network.
         :param net: network string hash (tuple of operation ids on each edge)
+        :param cache_graph: caching the networkx graph representation
+        :param cache_model: whether to cache the torch model in self.model
         """
-        super().__init__(net)
+        super().__init__(net, cache_model=cache_model)
         self.cache_graph = cache_graph
 
     def to_graph(self) -> NetGraph:
@@ -36,7 +38,7 @@ class NB201(NetBase):
         """
         return encode_adjacency_one_hot_op_indices(eval(self.net))
 
-    def get_model(self) -> torch.nn.Module:
+    def create_model(self) -> torch.nn.Module:
         """
         Converts the network to a naslib model - a torch module.
         :return: torch model

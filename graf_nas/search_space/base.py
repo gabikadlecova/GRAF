@@ -6,8 +6,10 @@ from typing import Dict, List, Tuple, Optional, Any
 
 
 class NetBase(ABC):
-    def __init__(self, net: str):
+    def __init__(self, net: str, cache_model: bool = False):
         self.net = net
+        self.cache_model = cache_model
+        self.model: torch.nn.Module | None = None
 
     def get_hash(self) -> str:
         return self.net
@@ -21,8 +23,19 @@ class NetBase(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def create_model(self) -> torch.nn.Module:
+        pass
+
     def get_model(self) -> torch.nn.Module:
-        raise NotImplementedError()
+        # retrieve cached model if available
+        if self.cache_model and self.model is not None:
+            return self.model
+        
+        # create torch model, optionally cache
+        model = self.create_model()
+        if self.cache_model:
+            self.model = model
+        return model
 
 
 class NetGraph:
