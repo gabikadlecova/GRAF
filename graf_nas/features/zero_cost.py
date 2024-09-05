@@ -32,6 +32,24 @@ class ZeroCostBase(ABC):
         pass
 
 
+class ZeroCostFunc(ZeroCostBase):
+    """
+    Zero-cost proxy scorer based on a simple function.
+    
+    The __call__ method should accept a torch model and return a float value
+    of the zero-cost proxy score.
+    """
+    def __init__(self, name: str, func: Callable[[torch.nn.Module], float]):
+        self.name = name
+        self.func = func
+
+    def __str__(self):
+        return self.name
+    
+    def __call__(self, net: torch.nn.Module) -> float:
+        return self.func(net)
+
+
 class ZeroCostNASLibProxy(ZeroCostBase):
     """
     Zero-cost proxy wrapper of the NASLib ZeroCost predictor.
@@ -116,7 +134,7 @@ def parse_scores(zc_data, dataset: str, drop_constant: bool = True, nets_as_inde
     zc_data = zc_data[dataset]
 
     # get data of some random architecture
-    arch_data = next(iter(zc_data))
+    arch_data = next(iter(zc_data.values()))
     score_keys = [k for k in arch_data.keys() if k != 'id' and k != 'val_accuracy']
 
     data = []
