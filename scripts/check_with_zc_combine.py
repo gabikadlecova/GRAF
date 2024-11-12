@@ -31,7 +31,7 @@ def main(benchmark, dataset, config, cached_data, naslib_root, zcp_cfg_path):
     graf_model = GRAF(feature_funcs, benchmark, dataloader=dataloader, cached_data=None, compute_new_zcps=True,
                       cache_features=False)
 
-    net_cls = searchspace_classes[benchmark]
+    net_cls = get_searchspace_classes()[benchmark]
     if 'macro' not in benchmark:
         ops = list(net_cls.get_op_map().keys())
 

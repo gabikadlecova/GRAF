@@ -4,7 +4,7 @@ from itertools import chain, combinations
 from collections.abc import Callable
 from graf_nas.features import feature_dicts
 from graf_nas.features.base import Feature, ConstrainedFeature
-from graf_nas.search_space import searchspace_classes
+from graf_nas.search_space import get_searchspace_classes
 from typing import Any, Iterable, List, Dict
 
 
@@ -67,7 +67,7 @@ def load_function_group(func_entry: Dict, benchmark: str) -> List[Feature] | Lis
     and one with operations ["op1", "op2"].
 
     :param func_entry: configuration entry
-    :param benchmark: benchmark name to index `graf_nas.features.feature_dicts` and `graf_nas.search_space.searchspace_classes`
+    :param benchmark: benchmark name to index `graf_nas.features.feature_dicts` and searchspace_classes
     :return: list with a single element if the function is not constrained, or a list of constrained functions
     """
     name = func_entry['name']
@@ -77,7 +77,7 @@ def load_function_group(func_entry: Dict, benchmark: str) -> List[Feature] | Lis
 
     if 'allowed' in func_entry:
         if bench_op_map is None:
-            searchspace_cls = searchspace_classes[benchmark]
+            searchspace_cls = get_searchspace_classes()[benchmark]
             if not hasattr(searchspace_cls, 'get_op_map'):
                 raise ValueError(f"Searchspace {benchmark} has no method for op map "
                                  f"(needed when 'allowed' is in the config file).")

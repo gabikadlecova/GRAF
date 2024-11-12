@@ -6,11 +6,6 @@ from collections.abc import Callable
 
 import torch.utils
 import torch.utils.data
-from graf_nas.search_space.base import NetBase
-from naslib.predictors.zerocost import ZeroCost  # type: ignore
-from naslib.utils import get_train_val_loaders  # type: ignore
-from naslib.utils import load_config  # type: ignore
-from naslib.predictors.utils.pruners.measures import available_measures  # type: ignore
 from typing import Optional, Dict
 
 
@@ -78,16 +73,22 @@ def load_cached_zcp(net_hash: str, proxy_name: str, data_scores: pd.DataFrame):
     return data_scores.loc[net_hash, proxy_name]
 
 
-def get_zcp_predictor(proxy: str, dataloader: Optional[torch.utils.data.DataLoader] = None, **kwargs) -> ZeroCostBase:
+def get_zcp_predictor(proxy: str, dataloader: Optional[torch.utils.data.DataLoader] = None, use_naslib: bool = True, **kwargs) -> ZeroCostBase:
     """
     Get a zero-cost proxy scorer from NASLib or from graf_nas.features.zero_cost.zero_cost_proxies.
 
     :param proxy: zero-cost proxy name
     :return: zero-cost proxy callable scorer
     """
-    if proxy in available_measures:
-        assert dataloader is not None, "Must provide dataloader if computing NASLib zero_cost scores."
-        return ZeroCostNASLibProxy(proxy, ZeroCost(proxy, **kwargs), dataloader=dataloader)
+    
+    if use_naslib:
+        from naslib.predictors.utils.pruners.measures import available_measures  # type: ignore
+
+        if proxy in available_measures:
+            from naslib.predictors.zerocost import ZeroCost  # type: ignore
+
+            assert dataloader is not None, "Must provide dataloader if computing NASLib zero_cost scores."
+            return ZeroCostNASLibProxy(proxy, ZeroCost(proxy, **kwargs), dataloader=dataloader)
     
     if proxy in zero_cost_proxies:
         return zero_cost_proxies[proxy](**kwargs)
@@ -105,6 +106,10 @@ def get_zcp_dataloader(dataset: str, zc_cfg: str = '../zero_cost/NASLib/naslib/r
     :param data: path to NASLib
     :return: dataloader for zero-cost proxy evaluation
     """
+    
+    from naslib.utils import get_train_val_loaders  # type: ignore
+
+    from naslib.utils import load_config  # type: ignore
     cfg = load_config(zc_cfg)
     cfg.data = "{}/data".format(data)
     cfg.dataset = dataset

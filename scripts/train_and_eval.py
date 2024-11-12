@@ -64,7 +64,7 @@ def train_end_evaluate(args):
         df = pd.read_csv('../../zc_combine/data/nb301_nets.csv', index_col=0)
         net_iterator = (DARTS(n) for n in df.index)
     else:
-        net_cls = searchspace_classes[benchmark]
+        net_cls = get_searchspace_classes()[benchmark]
         dataset_api = get_dataset_api(search_space=dataset_api_maps[benchmark], dataset=dataset)
         net_iterator = net_cls.get_arch_iterator(dataset_api)
 

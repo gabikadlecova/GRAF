@@ -5,7 +5,7 @@ from tqdm import tqdm
 from graf_nas import GRAF
 from graf_nas.features.config import load_from_config
 from graf_nas.graf import create_dataset
-from graf_nas.search_space import searchspace_classes, dataset_api_maps, DARTS
+from graf_nas.search_space import get_searchspace_classes, dataset_api_maps, DARTS
 from naslib.utils import get_dataset_api
 
 
@@ -19,7 +19,7 @@ def main(benchmark, dataset, config, out_path):
 
     graf_model = GRAF(feature_funcs, benchmark, cache_features=False)
 
-    net_cls = searchspace_classes[benchmark]
+    net_cls = get_searchspace_classes()[benchmark]
 
     if benchmark == 'darts':
         df = pd.read_csv('../../zc_combine/data/nb301_nets.csv', index_col=0)
