@@ -2,7 +2,7 @@ import json
 from itertools import chain, combinations
 
 from collections.abc import Callable
-from graf_nas.features import feature_dicts
+from graf_nas.features import get_feature_dicts
 from graf_nas.features.base import Feature, ConstrainedFeature
 from graf_nas.search_space import get_searchspace_classes
 from typing import Any, Iterable, List, Dict
@@ -71,7 +71,7 @@ def load_function_group(func_entry: Dict, benchmark: str) -> List[Feature] | Lis
     :return: list with a single element if the function is not constrained, or a list of constrained functions
     """
     name = func_entry['name']
-    func_key_dict = feature_dicts[benchmark]
+    func_key_dict = get_feature_dicts()[benchmark]
     func = func_key_dict[name]
     bench_op_map = None
 

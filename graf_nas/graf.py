@@ -2,6 +2,7 @@ import torch
 from collections.abc import Iterable
 from typing import Optional, Dict, Any, Hashable, List, Tuple
 
+import time
 import pandas as pd
 import torch.utils
 import torch.utils.data
@@ -55,6 +56,16 @@ class GRAF:
         # raise exceptions if a network has no precomputed score for a feature or a zero-cost proxy in the cached data
         self.no_zcp_raise = no_zcp_raise
         self.no_feature_raise = no_feature_raise
+
+    def cached_data_to_df(self) -> pd.DataFrame:
+        """
+        Convert cached data to a pandas DataFrame.
+        :return: pandas DataFrame with cached data
+        """
+        if self.cached_data is None:
+            return pd.DataFrame()
+
+        return pd.DataFrame(self.cached_data).T
 
     def compute_features(self, net: NetBase):
         """
@@ -163,15 +174,17 @@ class GRAF:
         net_entry = self.cached_data.setdefault(net, {})
         net_entry[colname] = score
 
-    def compute_zcp_scores(self, net: NetBase) -> Dict[str, float | None]:
+    def compute_zcp_scores(self, net: NetBase, return_times: bool = False) -> Dict[str, float | None]:
         """
         Compute zero-cost proxy scores for a given network.
         :param net: network to compute zero-cost proxies for
         :param zcp_names: list of zero-cost proxy names (or a single name)
         :return: dictionary with computed zero-cost proxy scores
         """
-        model = None
+        # parse callable model
+        model = net.get_model()
         res = {}
+        times = {}
         for zcp_key in self.zcp_predictors.keys():
             # try to retrieve cached score
             result = self.get_cached_zcp(net.get_hash(), zcp_key)
@@ -182,17 +195,17 @@ class GRAF:
                 if self.no_zcp_raise:
                     raise FeatureNotFoundException(f"Zero-cost proxy {zcp_key} not found in precomputed data.")
 
-                # parse callable model
-                if model is None:
-                    model = net.get_model()
-
+                time_start = time.time()                
                 result = self.compute_zcp(model, zcp_key)
+                time_end = time_start - time.time()
+                times[zcp_key] = time_end
+
                 if self.cache_zcp_scores:
                     self._cache_score(net.get_hash(), zcp_key, result)
 
             res[zcp_key] = result
 
-        return res
+        return (res, times) if return_times else res
 
 
 class FeatureNotFoundException(Exception):

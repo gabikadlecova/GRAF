@@ -49,7 +49,7 @@ class ZeroCostNASLibProxy(ZeroCostBase):
     """
     Zero-cost proxy wrapper of the NASLib ZeroCost predictor.
     """
-    def __init__(self, name: str, proxy: ZeroCost, dataloader: Optional[torch.utils.data.DataLoader] = None):
+    def __init__(self, name: str, proxy, dataloader: Optional[torch.utils.data.DataLoader] = None):
         super().__init__(name)
         self.proxy = proxy
         self.data_loader = dataloader
