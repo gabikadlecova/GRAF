@@ -182,7 +182,6 @@ class GRAF:
         :return: dictionary with computed zero-cost proxy scores
         """
         # parse callable model
-        model = net.get_model()
         res = {}
         times = {}
         for zcp_key in self.zcp_predictors.keys():
@@ -194,6 +193,8 @@ class GRAF:
                 # optionally raise if not available
                 if self.no_zcp_raise:
                     raise FeatureNotFoundException(f"Zero-cost proxy {zcp_key} not found in precomputed data.")
+
+                model = net.get_model()
 
                 time_start = time.time()                
                 result = self.compute_zcp(model, zcp_key)
