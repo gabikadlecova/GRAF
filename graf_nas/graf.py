@@ -198,7 +198,7 @@ class GRAF:
 
                 time_start = time.time()                
                 result = self.compute_zcp(model, zcp_key)
-                time_end = time_start - time.time()
+                time_end = time.time() - time_start
                 times[zcp_key] = time_end
 
                 if self.cache_zcp_scores:
